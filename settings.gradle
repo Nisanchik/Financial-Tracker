@@ -1,0 +1,3 @@
+rootProject.name = 'Financial_tracker'
+include 'user_service', 'transaction_service', 'notification_service'
+
