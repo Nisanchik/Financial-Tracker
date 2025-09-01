@@ -9,33 +9,9 @@
         <option name="modules">
           <set>
             <option value="$PROJECT_DIR$" />
-            <option value="$PROJECT_DIR$/notification_service" />
-            <option value="$PROJECT_DIR$/transaction_service" />
-            <option value="$PROJECT_DIR$/user_service" />
-          </set>
-        </option>
-      </GradleProjectSettings>
-      <GradleProjectSettings>
-        <option name="externalProjectPath" value="$PROJECT_DIR$/notification_service" />
-        <option name="modules">
-          <set>
-            <option value="$PROJECT_DIR$/notification_service" />
-          </set>
-        </option>
-      </GradleProjectSettings>
-      <GradleProjectSettings>
-        <option name="externalProjectPath" value="$PROJECT_DIR$/transaction_service" />
-        <option name="modules">
-          <set>
-            <option value="$PROJECT_DIR$/transaction_service" />
-          </set>
-        </option>
-      </GradleProjectSettings>
-      <GradleProjectSettings>
-        <option name="externalProjectPath" value="$PROJECT_DIR$/user_service" />
-        <option name="modules">
-          <set>
-            <option value="$PROJECT_DIR$/user_service" />
+            <option value="$PROJECT_DIR$/notification-service" />
+            <option value="$PROJECT_DIR$/transaction-service" />
+            <option value="$PROJECT_DIR$/user-service" />
           </set>
         </option>
       </GradleProjectSettings>
