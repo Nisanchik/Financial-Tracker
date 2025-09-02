@@ -1,4 +1,4 @@
-package org.example.transaction_service;
+package org.example.transactionservice;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
