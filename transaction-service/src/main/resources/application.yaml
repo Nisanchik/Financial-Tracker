@@ -12,5 +12,10 @@ spring:
   config:
     import: optional:file:../../../.env # TODO: import data from .env file
 
+transaction-service:
+  services:
+    account-service:
+      base-url: http://localhost:8083
+
 server:
   port: 8082
