@@ -60,7 +60,7 @@ public class Account extends BaseEntity {
     public void withdraw(BigDecimal amount) {
         validateAmount(amount);
         if (this.balance.compareTo(amount) < 0) {
-            throw new InsufficientBalanceException("Insufficient balance");
+            throw new InsufficientBalanceException("insufficient.balance");
         }
         this.balance = this.balance.subtract(amount);
     }
