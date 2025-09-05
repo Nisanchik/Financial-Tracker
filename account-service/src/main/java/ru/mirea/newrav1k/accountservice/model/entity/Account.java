@@ -10,6 +10,7 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import ru.mirea.newrav1k.accountservice.exception.AccountBalanceException;
 import ru.mirea.newrav1k.accountservice.exception.InsufficientBalanceException;
 import ru.mirea.newrav1k.accountservice.model.enums.AccountType;
 import ru.mirea.newrav1k.accountservice.model.enums.Currency;
@@ -66,12 +67,15 @@ public class Account extends BaseEntity {
     }
 
     public void deactivate() {
+        if (this.balance.signum() != 0) {
+            throw new AccountBalanceException("Account cannot be deactivated because balance is not zero");
+        }
         this.active = false;
     }
 
     private void validateAmount(BigDecimal amount) {
         if (amount == null || amount.signum() <= 0) {
-            throw new IllegalArgumentException("Amount must be positive");
+            throw new AccountBalanceException("Amount must be positive");
         }
     }
 
