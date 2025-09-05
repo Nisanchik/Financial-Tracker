@@ -101,13 +101,25 @@ public class AccountService {
 
     // TODO: исправить оптимистическую блокировку
     @Transactional
+    public void updateBalance(UUID accountId, BigDecimal amount) {
+        log.info("Updating account balance with id {}", accountId);
+        Account account = findAccountByIdOrThrow(accountId);
+        if (amount.signum() < 0) {
+            account.withdraw(amount.abs());
+        } else {
+            account.deposit(amount);
+        }
+    }
+
+    @Deprecated(forRemoval = true)
+    @Transactional
     public void depositMoney(UUID accountId, BigDecimal amount) {
         log.info("Making {} money for account with id {}", amount, accountId);
         Account account = findAccountByIdOrThrow(accountId);
         account.deposit(amount);
     }
 
-    // TODO: исправить оптимистическую блокировку
+    @Deprecated(forRemoval = true)
     @Transactional
     public void withdrawMoney(UUID accountId, BigDecimal amount) {
         log.info("Withdrawing {} money for account with id {}", amount, accountId);

@@ -94,7 +94,11 @@ public class TransactionService {
     @Transactional
     public void deleteById(UUID transactionId) {
         log.info("Deleting transaction by id {}", transactionId);
-        this.transactionRepository.deleteById(transactionId);
+        this.transactionRepository.findById(transactionId)
+                .ifPresent(transaction -> {
+                    this.accountClient.updateBalance(transaction.getAccountId(), transaction.getAmount());
+                    this.transactionRepository.delete(transaction);
+                });
     }
 
     private Transaction buildTransactionFromRequest(TransactionCreateRequest request) {

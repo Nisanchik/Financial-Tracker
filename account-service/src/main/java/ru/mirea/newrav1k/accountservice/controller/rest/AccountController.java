@@ -81,6 +81,14 @@ public class AccountController {
         return ResponseEntity.noContent().build();
     }
 
+    @PostMapping("/{accountId}/update-balance")
+    public ResponseEntity<AccountResponse> updateAccountBalance(@PathVariable("accountId") UUID accountId,
+                                                                @RequestParam("amount") BigDecimal amount) {
+        log.info("Updating account balance for account {}", accountId);
+        this.accountService.updateBalance(accountId, amount);
+        return ResponseEntity.ok().build();
+    }
+
     @PostMapping("/{accountId}/withdraw-balance")
     public ResponseEntity<Void> withdrawAccountBalance(@PathVariable("accountId") UUID accountId,
                                                        @RequestParam("amount") BigDecimal amount) {
