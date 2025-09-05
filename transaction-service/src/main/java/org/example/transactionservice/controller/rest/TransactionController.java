@@ -68,7 +68,7 @@ public class TransactionController {
             description = "Создаёт новую транзакцию и производит списание/начисление денег на счёт"
     )
     @PostMapping
-    public ResponseEntity<TransactionResponse> createTransaction(@RequestBody TransactionCreateRequest request,
+    public ResponseEntity<TransactionResponse> createTransaction(@Valid @RequestBody TransactionCreateRequest request,
                                                                  UriComponentsBuilder uriBuilder) {
         log.info("Create new transaction");
         TransactionResponse transaction = this.transactionalService.create(request);
