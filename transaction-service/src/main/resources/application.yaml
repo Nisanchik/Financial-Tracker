@@ -12,6 +12,31 @@ spring:
   config:
     import: optional:file:../../../.env # TODO: import data from .env file
 
+resilience4j:
+  circuitbreaker:
+    configs:
+      default:
+        sliding-window-type: TIME_BASED  # Окно на основе времени (10 секунд)
+        sliding-window-size: 10          # Размер окна - 10 секунд
+        minimum-number-of-calls: 5       # Нужно минимум 5 вызовов для анализа
+        failure-rate-threshold: 50       # 50%
+        wait-duration-in-open-state: 60s # 60 секунд в OPEN состоянии
+        permitted-number-of-calls-in-half-open-state: 3 # 3 тестовых вызова
+        record-exceptions: # какие исключения считать сбоями
+          - java.io.IOException           # Сетевые ошибки
+          - java.util.concurrent.TimeoutException # Таймауты
+        ignore-exceptions:
+          - org.example.transactionservice.exception.TransactionServiceException
+  retry:
+    configs:
+      default:
+        max-attempts: 3
+        wait-duration: 100ms
+        retry-exceptions:
+          - org.springframework.orm.ObjectOptimisticLockingFailureException
+        ignore-exceptions:
+          - org.example.transactionservice.exception.TransactionServiceException
+
 transaction-service:
   services:
     account-service:

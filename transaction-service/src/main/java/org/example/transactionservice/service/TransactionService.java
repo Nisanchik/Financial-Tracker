@@ -2,9 +2,12 @@ package org.example.transactionservice.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
+import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.example.transactionservice.exception.TransactionNotFoundException;
+import org.example.transactionservice.exception.TransactionServiceException;
 import org.example.transactionservice.mapper.TransactionMapper;
 import org.example.transactionservice.model.dto.TransactionCreateRequest;
 import org.example.transactionservice.model.dto.TransactionFilter;
@@ -87,7 +90,7 @@ public class TransactionService {
             return this.transactionMapper.toTransactionResponse(transaction);
         } catch (Exception exception) {
             log.error("Error while updating transaction with id {}", transactionId, exception);
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Error while updating transaction with id " + transactionId);
+            throw new TransactionServiceException("Failed to update transaction with id " + transactionId, exception);
         }
     }
 
@@ -115,12 +118,23 @@ public class TransactionService {
         return transaction;
     }
 
-    private void processUpdateBalance(Transaction transaction) {
+    @CircuitBreaker(name = "transactionService", fallbackMethod = "processUpdateBalanceFallback")
+    public void processUpdateBalance(Transaction transaction) {
         if (transaction.getType().equals(TransactionType.INCOME)) {
             this.accountClient.updateBalance(transaction.getAccountId(), transaction.getAmount());
         } else if (transaction.getType().equals(TransactionType.EXPENSE)) {
             this.accountClient.updateBalance(transaction.getAccountId(), transaction.getAmount().negate());
         }
+    }
+
+    private void processUpdateBalanceFallback(Transaction transaction, CallNotPermittedException ex) {
+        log.warn("Processing update balance fallback");
+        // TODO: fallback для CircuitBreaker
+    }
+
+    private void processUpdateBalanceFallback(Transaction transaction, Exception ex) {
+        log.warn("Processing update balance fallback");
+        // TODO: fallback для CircuitBreaker
     }
 
     @Deprecated(forRemoval = true)
