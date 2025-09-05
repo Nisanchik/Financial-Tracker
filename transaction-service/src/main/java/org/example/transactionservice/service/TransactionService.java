@@ -11,7 +11,9 @@ import org.example.transactionservice.model.dto.TransactionFilter;
 import org.example.transactionservice.model.dto.TransactionResponse;
 import org.example.transactionservice.model.dto.TransactionUpdateRequest;
 import org.example.transactionservice.model.entity.Transaction;
+import org.example.transactionservice.model.enums.TransactionType;
 import org.example.transactionservice.repository.TransactionRepository;
+import org.example.transactionservice.service.client.AccountClient;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
@@ -36,6 +38,8 @@ public class TransactionService {
 
     private final ObjectMapper objectMapper;
 
+    private final AccountClient accountClient;
+
     public Page<TransactionResponse> findAll(TransactionFilter filter, Pageable pageable) {
         log.info("Finding all transactions by pageable");
         Specification<Transaction> specification = this.transactionRepository.buildTransactionSpecification(filter);
@@ -53,20 +57,9 @@ public class TransactionService {
     @Transactional
     public TransactionResponse create(TransactionCreateRequest request) {
         log.info("Creating new transaction");
-        Transaction transaction = new Transaction();
-
-        transaction.setUserId(request.userId());
-        transaction.setAmount(request.amount());
-        transaction.setAccountId(request.accountId());
-        transaction.setDescription(request.description());
-        transaction.setCategoryId(request.categoryId());
-        transaction.setType(request.type());
-        transaction.setTags(request.tags());
-
+        Transaction transaction = buildTransactionFromRequest(request);
         this.transactionRepository.save(transaction);
-
-        // TODO: зачисление/списание средств с аккаунта пользователя
-
+        processPaymentTransaction(transaction);
         return this.transactionMapper.toTransactionResponse(transaction);
     }
 
@@ -102,6 +95,28 @@ public class TransactionService {
     public void deleteById(UUID transactionId) {
         log.info("Deleting transaction by id {}", transactionId);
         this.transactionRepository.deleteById(transactionId);
+    }
+
+    private Transaction buildTransactionFromRequest(TransactionCreateRequest request) {
+        Transaction transaction = new Transaction();
+
+        transaction.setUserId(request.userId());
+        transaction.setAmount(request.amount());
+        transaction.setAccountId(request.accountId());
+        transaction.setDescription(request.description());
+        transaction.setCategoryId(request.categoryId());
+        transaction.setType(request.type());
+        transaction.setTags(request.tags());
+
+        return transaction;
+    }
+
+    private void processPaymentTransaction(Transaction transaction) {
+        if (transaction.getType().equals(TransactionType.INCOME)) {
+            this.accountClient.depositBalance(transaction.getAccountId(), transaction.getAmount());
+        } else if (transaction.getType().equals(TransactionType.EXPENSE)) {
+            this.accountClient.withdrawBalance(transaction.getAccountId(), transaction.getAmount());
+        }
     }
 
 }
