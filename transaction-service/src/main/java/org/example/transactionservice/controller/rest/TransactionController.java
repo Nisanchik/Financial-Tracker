@@ -1,6 +1,9 @@
 package org.example.transactionservice.controller.rest;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.example.transactionservice.model.dto.TransactionCreateRequest;
@@ -26,6 +29,10 @@ import org.springframework.web.util.UriComponentsBuilder;
 
 import java.util.UUID;
 
+@Tag(
+        name = "Transaction Controller",
+        description = "Контроллер для взаимодействия с транзакциями"
+)
 @Slf4j
 @RestController
 @RequiredArgsConstructor
@@ -34,13 +41,21 @@ public class TransactionController {
 
     private final TransactionService transactionalService;
 
+    @Operation(
+            summary = "Получение всех транзакций",
+            description = "Загружает все транзакции с использованием фильтра для поиска"
+    )
     @GetMapping
-    public PagedModel<TransactionResponse> loadAllTransactions(@ModelAttribute TransactionFilter filter,
+    public PagedModel<TransactionResponse> loadAllTransactions(@Valid @ModelAttribute TransactionFilter filter,
                                                                @PageableDefault Pageable pageable) {
         log.info("Load all transactions");
         return new PagedModel<>(this.transactionalService.findAll(filter, pageable));
     }
 
+    @Operation(
+            summary = "Получение конкретной транзакции",
+            description = "Загружает транзакцию по её идентификатору"
+    )
     @GetMapping("/{transactionId}")
     public ResponseEntity<TransactionResponse> loadTransaction(@PathVariable("transactionId") UUID transactionId) {
         log.info("Load transaction with id: {}", transactionId);
@@ -48,6 +63,10 @@ public class TransactionController {
         return ResponseEntity.ok(transaction);
     }
 
+    @Operation(
+            summary = "Создание транзакции",
+            description = "Создаёт новую транзакцию и производит списание/начисление денег на счёт"
+    )
     @PostMapping
     public ResponseEntity<TransactionResponse> createTransaction(@RequestBody TransactionCreateRequest request,
                                                                  UriComponentsBuilder uriBuilder) {
@@ -59,14 +78,22 @@ public class TransactionController {
                 .body(transaction);
     }
 
+    @Operation(
+            summary = "Обновление транзакции",
+            description = "Обновляет транзакцию по её уникальному идентификатору"
+    )
     @PutMapping("/{transactionId}")
     public ResponseEntity<TransactionResponse> updateTransaction(@PathVariable("transactionId") UUID transactionId,
-                                                                 TransactionUpdateRequest request) {
+                                                                 @Valid @RequestBody TransactionUpdateRequest request) {
         log.info("Update transaction with id: {}", transactionId);
         TransactionResponse transaction = this.transactionalService.updateById(transactionId, request);
         return ResponseEntity.ok(transaction);
     }
 
+    @Operation(
+            summary = "Частичное обновление транзакции",
+            description = "Частично обновляет транзакцию по её уникальному идентификатору"
+    )
     @PatchMapping("/{transactionId}")
     public ResponseEntity<TransactionResponse> partialUpdateTransaction(@PathVariable("transactionId") UUID transactionId,
                                                                         @RequestBody JsonNode jsonNode) {
@@ -75,6 +102,10 @@ public class TransactionController {
         return ResponseEntity.ok(transaction);
     }
 
+    @Operation(
+            summary = "Удаление транзакции",
+            description = "Удаляет транзакцию по её уникальному идентификатору и производит её откат"
+    )
     @DeleteMapping("/{transactionId}")
     public ResponseEntity<Void> deleteTransaction(@PathVariable("transactionId") UUID transactionId) {
         log.info("Delete transaction with id: {}", transactionId);
