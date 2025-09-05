@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.util.UriComponentsBuilder;
 import ru.mirea.newrav1k.accountservice.model.dto.AccountCreateRequest;
@@ -80,15 +81,17 @@ public class AccountController {
         return ResponseEntity.noContent().build();
     }
 
-    @PatchMapping("/{accountId}/withdraw-balance")
-    public ResponseEntity<Void> withdrawAccountBalance(@PathVariable("accountId") UUID accountId, BigDecimal amount) {
+    @PostMapping("/{accountId}/withdraw-balance")
+    public ResponseEntity<Void> withdrawAccountBalance(@PathVariable("accountId") UUID accountId,
+                                                       @RequestParam("amount") BigDecimal amount) {
         log.info("Withdrawing account {}", accountId);
         this.accountService.withdrawMoney(accountId, amount);
         return ResponseEntity.ok().build();
     }
 
-    @PatchMapping("/{accountId}/deposit-balance")
-    public ResponseEntity<Void> depositAccountBalance(@PathVariable("accountId") UUID accountId, BigDecimal amount) {
+    @PostMapping("/{accountId}/deposit-balance")
+    public ResponseEntity<Void> depositAccountBalance(@PathVariable("accountId") UUID accountId,
+                                                      @RequestParam("amount") BigDecimal amount) {
         log.info("Deposit account balance for account {}", accountId);
         this.accountService.depositMoney(accountId, amount);
         return ResponseEntity.ok().build();
