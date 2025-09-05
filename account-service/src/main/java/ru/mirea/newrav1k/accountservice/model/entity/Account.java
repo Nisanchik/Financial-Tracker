@@ -18,6 +18,9 @@ import ru.mirea.newrav1k.accountservice.model.enums.Currency;
 import java.math.BigDecimal;
 import java.util.UUID;
 
+import static ru.mirea.newrav1k.accountservice.utils.MessageCode.BALANCE_NOT_ZERO;
+import static ru.mirea.newrav1k.accountservice.utils.MessageCode.INVALID_AMOUNT;
+
 @Getter
 @Setter
 @NoArgsConstructor
@@ -61,21 +64,21 @@ public class Account extends BaseEntity {
     public void withdraw(BigDecimal amount) {
         validateAmount(amount);
         if (this.balance.compareTo(amount) < 0) {
-            throw new InsufficientBalanceException("insufficient.balance");
+            throw new InsufficientBalanceException();
         }
         this.balance = this.balance.subtract(amount);
     }
 
     public void deactivate() {
         if (this.balance.signum() != 0) {
-            throw new AccountBalanceException("Account cannot be deactivated because balance is not zero");
+            throw new AccountBalanceException(BALANCE_NOT_ZERO);
         }
         this.active = false;
     }
 
     private void validateAmount(BigDecimal amount) {
         if (amount == null || amount.signum() <= 0) {
-            throw new AccountBalanceException("Amount must be positive");
+            throw new AccountBalanceException(INVALID_AMOUNT);
         }
     }
 

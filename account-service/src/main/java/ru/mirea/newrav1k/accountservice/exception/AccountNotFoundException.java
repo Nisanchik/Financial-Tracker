@@ -1,25 +1,15 @@
 package ru.mirea.newrav1k.accountservice.exception;
 
-public class AccountNotFoundException extends RuntimeException {
+import static ru.mirea.newrav1k.accountservice.utils.MessageCode.ACCOUNT_NOT_FOUND;
+
+public class AccountNotFoundException extends AccountServiceException {
 
     public AccountNotFoundException() {
-        super();
+        super(ACCOUNT_NOT_FOUND);
     }
 
-    public AccountNotFoundException(String message) {
-        super(message);
-    }
-
-    public AccountNotFoundException(String message, Throwable cause) {
-        super(message, cause);
-    }
-
-    public AccountNotFoundException(Throwable cause) {
-        super(cause);
-    }
-
-    protected AccountNotFoundException(String message, Throwable cause, boolean enableSuppression, boolean writableStackTrace) {
-        super(message, cause, enableSuppression, writableStackTrace);
+    public AccountNotFoundException(Object[] args) {
+        super(ACCOUNT_NOT_FOUND, args);
     }
 
 }
