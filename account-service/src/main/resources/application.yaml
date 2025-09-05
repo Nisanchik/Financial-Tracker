@@ -12,5 +12,19 @@ spring:
   config:
     import: optional:file:../../../.env # TODO: import data from .env file
 
+resilience4j:
+  retry:
+    configs:
+      optimisticLockingConfig:
+        max-attempts: 3
+        wait-duration: 100ms
+        retry-exceptions:
+          - org.springframework.orm.ObjectOptimisticLockingFailureException
+        ignore-exceptions:
+          - ru.mirea.newrav1k.accountservice.exception.AccountNotFoundException
+    instances:
+      accountService:
+        base-config: optimisticLockingConfig
+
 server:
   port: 8083

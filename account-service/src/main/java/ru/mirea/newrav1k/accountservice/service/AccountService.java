@@ -2,15 +2,19 @@ package ru.mirea.newrav1k.accountservice.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.github.resilience4j.retry.annotation.Retry;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.server.ResponseStatusException;
 import ru.mirea.newrav1k.accountservice.exception.AccountNotFoundException;
+import ru.mirea.newrav1k.accountservice.exception.AccountServiceException;
 import ru.mirea.newrav1k.accountservice.mapper.AccountMapper;
 import ru.mirea.newrav1k.accountservice.model.dto.AccountCreateRequest;
 import ru.mirea.newrav1k.accountservice.model.dto.AccountResponse;
@@ -19,6 +23,7 @@ import ru.mirea.newrav1k.accountservice.model.entity.Account;
 import ru.mirea.newrav1k.accountservice.repository.AccountRepository;
 
 import java.math.BigDecimal;
+import java.util.ConcurrentModificationException;
 import java.util.UUID;
 
 import static ru.mirea.newrav1k.accountservice.utils.MessageCode.ACCOUNT_NOT_FOUND;
@@ -34,6 +39,8 @@ public class AccountService {
     private final AccountMapper accountMapper;
 
     private final ObjectMapper objectMapper;
+
+    private final TransactionTemplate transactionTemplate;
 
     public Page<AccountResponse> findAll(Pageable pageable) {
         log.info("Finding all accounts");
@@ -51,18 +58,8 @@ public class AccountService {
     @Transactional
     public AccountResponse create(AccountCreateRequest request) {
         log.info("Creating new account");
-        Account account = new Account();
-
-        account.setUserId(request.userId());
-        account.setName(request.name());
-        account.setCurrency(request.currency());
-        account.setType(request.type());
-
-        account.setBalance(BigDecimal.ZERO);
-        account.setActive(true);
-
+        Account account = buildAccountFromRequest(request);
         this.accountRepository.save(account);
-
         return this.accountMapper.toAccountResponse(account);
     }
 
@@ -99,16 +96,24 @@ public class AccountService {
         this.accountRepository.deleteById(accountId);
     }
 
-    // TODO: исправить оптимистическую блокировку
-    @Transactional
+    /**
+     * ✅ Правильно: Retry работает вне транзакции
+     * ✅ Правильно: Каждая попытка - новая транзакция
+     * ✅ Правильно: Нет проблемы с persistence context
+     * ✅ Правильно: Используется TransactionTemplate
+     */
+    @Retry(name = "accountService", fallbackMethod = "updateBalanceFallback")
     public void updateBalance(UUID accountId, BigDecimal amount) {
         log.info("Updating account balance with id {}", accountId);
-        Account account = findAccountByIdOrThrow(accountId);
-        if (amount.signum() < 0) {
-            account.withdraw(amount.abs());
-        } else {
-            account.deposit(amount);
-        }
+        this.transactionTemplate.execute(status -> {
+            Account account = findAccountByIdOrThrow(accountId);
+            if (amount.signum() < 0) {
+                account.withdraw(amount.abs());
+            } else {
+                account.deposit(amount);
+            }
+            return null;
+        });
     }
 
     @Deprecated(forRemoval = true)
@@ -134,9 +139,31 @@ public class AccountService {
         account.deactivate();
     }
 
+    private Account buildAccountFromRequest(AccountCreateRequest request) {
+        Account account = new Account();
+
+        account.setUserId(request.userId());
+        account.setName(request.name());
+        account.setCurrency(request.currency());
+        account.setType(request.type());
+
+        account.setBalance(BigDecimal.ZERO);
+        account.setActive(true);
+
+        return account;
+    }
+
     private Account findAccountByIdOrThrow(UUID accountId) {
         return this.accountRepository.findById(accountId)
                 .orElseThrow(() -> new AccountNotFoundException(ACCOUNT_NOT_FOUND));
+    }
+
+    private void updateBalanceFallback(UUID accountId, BigDecimal amount, Exception ex) {
+        if (ex instanceof ObjectOptimisticLockingFailureException) {
+            log.warn("Update balance fallback for account with id {}", accountId);
+            throw new ConcurrentModificationException("Account has been updated another transaction", ex);
+        }
+        throw new AccountServiceException("Error while update balance");
     }
 
 }
