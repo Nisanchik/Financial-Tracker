@@ -59,7 +59,7 @@ public class TransactionService {
         log.info("Creating new transaction");
         Transaction transaction = buildTransactionFromRequest(request);
         this.transactionRepository.save(transaction);
-        processPaymentTransaction(transaction);
+        processUpdateBalance(transaction);
         return this.transactionMapper.toTransactionResponse(transaction);
     }
 
@@ -115,6 +115,15 @@ public class TransactionService {
         return transaction;
     }
 
+    private void processUpdateBalance(Transaction transaction) {
+        if (transaction.getType().equals(TransactionType.INCOME)) {
+            this.accountClient.updateBalance(transaction.getAccountId(), transaction.getAmount());
+        } else if (transaction.getType().equals(TransactionType.EXPENSE)) {
+            this.accountClient.updateBalance(transaction.getAccountId(), transaction.getAmount().negate());
+        }
+    }
+
+    @Deprecated(forRemoval = true)
     private void processPaymentTransaction(Transaction transaction) {
         if (transaction.getType().equals(TransactionType.INCOME)) {
             this.accountClient.depositBalance(transaction.getAccountId(), transaction.getAmount());
