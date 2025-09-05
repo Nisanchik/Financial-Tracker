@@ -83,8 +83,7 @@ public class AccountService {
     @Transactional
     public AccountResponse update(UUID accountId, JsonNode jsonNode) {
         log.info("Updating account with id {}", accountId);
-        Account account = this.accountRepository.findById(accountId)
-                .orElseThrow(() -> new AccountNotFoundException(ACCOUNT_NOT_FOUND));
+        Account account = findAccountByIdOrThrow(accountId);
         try {
             this.objectMapper.readerForUpdating(account).readValue(jsonNode);
 
@@ -104,8 +103,7 @@ public class AccountService {
     @Transactional
     public void depositMoney(UUID accountId, BigDecimal amount) {
         log.info("Making {} money for account with id {}", amount, accountId);
-        Account account = this.accountRepository.findById(accountId)
-                .orElseThrow(() -> new AccountNotFoundException(ACCOUNT_NOT_FOUND));
+        Account account = findAccountByIdOrThrow(accountId);
         account.deposit(amount);
     }
 
@@ -113,17 +111,20 @@ public class AccountService {
     @Transactional
     public void withdrawMoney(UUID accountId, BigDecimal amount) {
         log.info("Withdrawing {} money for account with id {}", amount, accountId);
-        Account account = this.accountRepository.findById(accountId)
-                .orElseThrow(() -> new AccountNotFoundException(ACCOUNT_NOT_FOUND));
+        Account account = findAccountByIdOrThrow(accountId);
         account.withdraw(amount);
     }
 
     @Transactional
     public void deactivateAccount(UUID accountId) {
         log.info("Deactivating account with id {}", accountId);
-        Account account = this.accountRepository.findById(accountId)
-                .orElseThrow(() -> new AccountNotFoundException(ACCOUNT_NOT_FOUND));
+        Account account = findAccountByIdOrThrow(accountId);
         account.deactivate();
+    }
+
+    private Account findAccountByIdOrThrow(UUID accountId) {
+        return this.accountRepository.findById(accountId)
+                .orElseThrow(() -> new AccountNotFoundException(ACCOUNT_NOT_FOUND));
     }
 
 }
