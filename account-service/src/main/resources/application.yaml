@@ -21,7 +21,7 @@ resilience4j:
         retry-exceptions:
           - org.springframework.orm.ObjectOptimisticLockingFailureException
         ignore-exceptions:
-          - ru.mirea.newrav1k.accountservice.exception.AccountNotFoundException
+          - ru.mirea.newrav1k.accountservice.exception.AccountServiceException
     instances:
       accountService:
         base-config: optimisticLockingConfig

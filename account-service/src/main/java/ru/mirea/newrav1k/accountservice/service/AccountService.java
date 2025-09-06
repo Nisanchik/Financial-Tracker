@@ -164,6 +164,8 @@ public class AccountService {
             throw new InsufficientBalanceException(new Object[]{amount, findAccountBalance(accountId)});
         } else if (exception instanceof AccountBalanceException abe) {
             throw new AccountBalanceException(abe.getMessageCode(), new BigDecimal[]{amount});
+        } else if (exception instanceof AccountNotFoundException) {
+            throw new AccountNotFoundException();
         }
         throw new AccountServiceException(RETRY_EXHAUSTED, new String[]{exception.getMessage()});
     }

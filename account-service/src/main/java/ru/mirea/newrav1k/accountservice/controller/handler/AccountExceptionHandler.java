@@ -10,6 +10,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import ru.mirea.newrav1k.accountservice.exception.AccountBalanceException;
+import ru.mirea.newrav1k.accountservice.exception.AccountNotFoundException;
 import ru.mirea.newrav1k.accountservice.exception.AccountServiceException;
 import ru.mirea.newrav1k.accountservice.exception.ConcurrentModificationException;
 import ru.mirea.newrav1k.accountservice.exception.InsufficientBalanceException;
@@ -71,6 +72,8 @@ public class AccountExceptionHandler {
             return HttpStatus.CONFLICT;
         } else if (exception instanceof AccountBalanceException) {
             return HttpStatus.BAD_REQUEST;
+        } else if (exception instanceof AccountNotFoundException) {
+            return HttpStatus.NOT_FOUND;
         }
         return HttpStatus.INTERNAL_SERVER_ERROR;
     }
