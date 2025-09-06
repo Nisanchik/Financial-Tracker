@@ -2,24 +2,18 @@ package org.example.transactionservice.exception;
 
 public class TransactionServiceException extends RuntimeException {
 
-    public TransactionServiceException() {
-        super();
-    }
+    public final String messageCode;
+
+    public final transient Object[] args;
 
     public TransactionServiceException(String message) {
-        super(message);
+        this.messageCode = message;
+        this.args = new Object[0];
     }
 
-    public TransactionServiceException(String message, Throwable cause) {
-        super(message, cause);
-    }
-
-    public TransactionServiceException(Throwable cause) {
-        super(cause);
-    }
-
-    protected TransactionServiceException(String message, Throwable cause, boolean enableSuppression, boolean writableStackTrace) {
-        super(message, cause, enableSuppression, writableStackTrace);
+    public TransactionServiceException(String message, Object ... args) {
+        this.messageCode = message;
+        this.args = args;
     }
 
 }

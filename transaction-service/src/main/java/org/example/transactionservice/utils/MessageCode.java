@@ -8,4 +8,6 @@ public class MessageCode {
 
     public static final String TRANSACTION_NOT_FOUND = "transaction.not.found";
 
+    public static final String TRANSACTION_UPDATE_FAILED = "error.transaction_update_failed";
+
 }

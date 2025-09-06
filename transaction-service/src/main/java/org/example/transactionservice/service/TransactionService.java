@@ -20,14 +20,12 @@ import org.example.transactionservice.service.client.AccountClient;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.server.ResponseStatusException;
 
 import java.util.UUID;
 
-import static org.example.transactionservice.utils.MessageCode.TRANSACTION_NOT_FOUND;
+import static org.example.transactionservice.utils.MessageCode.TRANSACTION_UPDATE_FAILED;
 
 @Slf4j
 @Service
@@ -54,7 +52,7 @@ public class TransactionService {
         log.info("Finding transaction with id {}", transactionId);
         return this.transactionRepository.findById(transactionId)
                 .map(this.transactionMapper::toTransactionResponse)
-                .orElseThrow(() -> new TransactionNotFoundException(TRANSACTION_NOT_FOUND));
+                .orElseThrow(TransactionNotFoundException::new);
     }
 
     @Transactional
@@ -76,21 +74,21 @@ public class TransactionService {
                     return transaction;
                 })
                 .map(this.transactionMapper::toTransactionResponse)
-                .orElseThrow(() -> new TransactionNotFoundException(TRANSACTION_NOT_FOUND));
+                .orElseThrow(TransactionNotFoundException::new);
     }
 
     @Transactional
     public TransactionResponse updateById(UUID transactionId, JsonNode jsonNode) {
         log.info("Updating transaction with id {}", transactionId);
         Transaction transaction = this.transactionRepository.findById(transactionId)
-                .orElseThrow(() -> new TransactionNotFoundException(TRANSACTION_NOT_FOUND));
+                .orElseThrow(TransactionNotFoundException::new);
         try {
             this.objectMapper.readerForUpdating(transaction).readValue(jsonNode);
 
             return this.transactionMapper.toTransactionResponse(transaction);
         } catch (Exception exception) {
             log.error("Error while updating transaction with id {}", transactionId, exception);
-            throw new TransactionServiceException("Failed to update transaction with id " + transactionId, exception);
+            throw new TransactionServiceException(TRANSACTION_UPDATE_FAILED);
         }
     }
 

@@ -7,7 +7,7 @@ public class AccountServiceException extends RuntimeException {
 
     private final String messageCode;
 
-    private final Object[] args;
+    private final transient Object[] args;
 
     public AccountServiceException(String message) {
         this.messageCode = message;
