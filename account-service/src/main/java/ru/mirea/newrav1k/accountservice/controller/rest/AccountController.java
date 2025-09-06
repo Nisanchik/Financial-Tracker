@@ -124,11 +124,11 @@ public class AccountController {
             @ApiResponse(responseCode = "404",
                     description = "Аккаунт не найден")})
     @PostMapping("/{accountId}/update-balance") // @PostMapping для корректной работы FeignClient
-    public ResponseEntity<AccountResponse> updateAccountBalance(@PathVariable("accountId") UUID accountId,
+    public ResponseEntity<Void> updateAccountBalance(@PathVariable("accountId") UUID accountId,
                                                                 @RequestParam("amount") BigDecimal amount) {
         log.info("Updating account balance for account {}", accountId);
         this.accountService.updateBalance(accountId, amount);
-        return ResponseEntity.ok().build();
+        return ResponseEntity.noContent().build();
     }
 
     @Operation(summary = "Снятие средств с баланса аккаунта",
@@ -138,7 +138,7 @@ public class AccountController {
                                                        @RequestParam("amount") BigDecimal amount) {
         log.info("Withdrawing account {}", accountId);
         this.accountService.withdrawMoney(accountId, amount);
-        return ResponseEntity.ok().build();
+        return ResponseEntity.noContent().build();
     }
 
     @Operation(summary = "Пополнение баланса аккаунта",
@@ -148,7 +148,7 @@ public class AccountController {
                                                       @RequestParam("amount") BigDecimal amount) {
         log.info("Deposit account balance for account {}", accountId);
         this.accountService.depositMoney(accountId, amount);
-        return ResponseEntity.ok().build();
+        return ResponseEntity.noContent().build();
     }
 
     @Operation(summary = "Деактивация аккаунта",
