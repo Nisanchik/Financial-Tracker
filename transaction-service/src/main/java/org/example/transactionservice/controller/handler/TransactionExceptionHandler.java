@@ -3,6 +3,7 @@ package org.example.transactionservice.controller.handler;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.example.transactionservice.exception.TransactionNotFoundException;
+import org.example.transactionservice.exception.TransactionServiceException;
 import org.springframework.context.MessageSource;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
@@ -22,11 +23,11 @@ public class TransactionExceptionHandler {
 
     private final MessageSource messageSource;
 
-    @ExceptionHandler(TransactionNotFoundException.class)
-    public ResponseEntity<ProblemDetail> handleTransactionNotFoundException(TransactionNotFoundException exception, Locale locale) {
+    @ExceptionHandler(TransactionServiceException.class)
+    public ResponseEntity<ProblemDetail> handleTransactionServiceException(TransactionServiceException exception, Locale locale) {
         log.error(exception.getMessage(), exception);
-        ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND,
-                this.messageSource.getMessage(exception.getMessage(), new Object[0], exception.getMessage(), locale));
+        ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(getHttpStatus(exception),
+                this.messageSource.getMessage(exception.getMessageCode(), new Object[0], exception.getMessageCode(), locale));
         return ResponseEntity.of(problemDetail).build();
     }
 
@@ -45,7 +46,17 @@ public class TransactionExceptionHandler {
                 .toList();
         ProblemDetail problemDetail = ProblemDetail.forStatus(HttpStatus.BAD_REQUEST);
         problemDetail.setProperties(Map.of("errors", errors));
+
+        // TODO: Добавить кастомный ответ с подробной информацией об ошибке и поле
+
         return ResponseEntity.of(problemDetail).build();
+    }
+
+    private HttpStatus getHttpStatus(TransactionServiceException exception) {
+        if (exception instanceof TransactionNotFoundException) {
+            return HttpStatus.NOT_FOUND;
+        }
+        return HttpStatus.INTERNAL_SERVER_ERROR;
     }
 
 }

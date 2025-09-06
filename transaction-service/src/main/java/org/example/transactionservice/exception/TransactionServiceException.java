@@ -1,5 +1,8 @@
 package org.example.transactionservice.exception;
 
+import lombok.Getter;
+
+@Getter
 public class TransactionServiceException extends RuntimeException {
 
     public final String messageCode;
