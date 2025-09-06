@@ -26,7 +26,7 @@ public class AccountExceptionHandler {
 
     @ExceptionHandler(AccountServiceException.class)
     public ResponseEntity<ProblemDetail> handleAccountServiceException(AccountServiceException exception, Locale locale) {
-        String message = this.messageSource.getMessage(exception.getMessage(), exception.getArgs(), exception.getMessage(), locale);
+        String message = this.messageSource.getMessage(exception.getMessageCode(), exception.getArgs(), exception.getMessageCode(), locale);
         ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(getHttpStatus(exception), message);
         return ResponseEntity.of(problemDetail).build();
     }
