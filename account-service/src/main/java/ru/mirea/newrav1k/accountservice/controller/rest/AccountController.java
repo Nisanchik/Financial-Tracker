@@ -1,6 +1,7 @@
 package ru.mirea.newrav1k.accountservice.controller.rest;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Pageable;
@@ -48,7 +49,7 @@ public class AccountController {
     }
 
     @PostMapping
-    public ResponseEntity<AccountResponse> createAccount(@RequestBody AccountCreateRequest request,
+    public ResponseEntity<AccountResponse> createAccount(@Valid @RequestBody AccountCreateRequest request,
                                                          UriComponentsBuilder uriBuilder) {
         log.info("Creating account {}", request);
         AccountResponse account = this.accountService.create(request);
@@ -60,7 +61,7 @@ public class AccountController {
 
     @PutMapping("/{accountId}")
     public ResponseEntity<AccountResponse> updateAccount(@PathVariable("accountId") UUID accountId,
-                                                         @RequestBody AccountUpdateRequest request) {
+                                                         @Valid @RequestBody AccountUpdateRequest request) {
         log.info("Updating account {}", request);
         AccountResponse account = this.accountService.update(accountId, request);
         return ResponseEntity.ok(account);
@@ -81,7 +82,7 @@ public class AccountController {
         return ResponseEntity.noContent().build();
     }
 
-    @PostMapping("/{accountId}/update-balance")
+    @PostMapping("/{accountId}/update-balance") // @PostMapping для корректной работы FeignClient
     public ResponseEntity<AccountResponse> updateAccountBalance(@PathVariable("accountId") UUID accountId,
                                                                 @RequestParam("amount") BigDecimal amount) {
         log.info("Updating account balance for account {}", accountId);
@@ -89,7 +90,7 @@ public class AccountController {
         return ResponseEntity.ok().build();
     }
 
-    @PostMapping("/{accountId}/withdraw-balance")
+    @PostMapping("/{accountId}/withdraw-balance") // @PostMapping для корректной работы FeignClient
     public ResponseEntity<Void> withdrawAccountBalance(@PathVariable("accountId") UUID accountId,
                                                        @RequestParam("amount") BigDecimal amount) {
         log.info("Withdrawing account {}", accountId);
@@ -97,7 +98,7 @@ public class AccountController {
         return ResponseEntity.ok().build();
     }
 
-    @PostMapping("/{accountId}/deposit-balance")
+    @PostMapping("/{accountId}/deposit-balance") // @PostMapping для корректной работы FeignClient
     public ResponseEntity<Void> depositAccountBalance(@PathVariable("accountId") UUID accountId,
                                                       @RequestParam("amount") BigDecimal amount) {
         log.info("Deposit account balance for account {}", accountId);
