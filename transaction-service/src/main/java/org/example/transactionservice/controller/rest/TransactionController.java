@@ -2,6 +2,8 @@ package org.example.transactionservice.controller.rest;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -29,10 +31,8 @@ import org.springframework.web.util.UriComponentsBuilder;
 
 import java.util.UUID;
 
-@Tag(
-        name = "Transaction Controller",
-        description = "Контроллер для взаимодействия с транзакциями"
-)
+@Tag(name = "Transaction Controller",
+        description = "Контроллер для управления транзакциями")
 @Slf4j
 @RestController
 @RequiredArgsConstructor
@@ -41,10 +41,8 @@ public class TransactionController {
 
     private final TransactionService transactionalService;
 
-    @Operation(
-            summary = "Получение всех транзакций",
-            description = "Загружает все транзакции с использованием фильтра для поиска"
-    )
+    @Operation(summary = "Получение всех транзакций",
+            description = "Загружает все транзакции с использованием фильтра для поиска")
     @GetMapping
     public PagedModel<TransactionResponse> loadAllTransactions(@Valid @ModelAttribute TransactionFilter filter,
                                                                @PageableDefault Pageable pageable) {
@@ -52,10 +50,10 @@ public class TransactionController {
         return new PagedModel<>(this.transactionalService.findAll(filter, pageable));
     }
 
-    @Operation(
-            summary = "Получение конкретной транзакции",
-            description = "Загружает транзакцию по её идентификатору"
-    )
+    @Operation(summary = "Получение конкретной транзакции",
+            description = "Загружает транзакцию по её идентификатору")
+    @ApiResponse(responseCode = "404",
+            description = "Транзакция не найдена")
     @GetMapping("/{transactionId}")
     public ResponseEntity<TransactionResponse> loadTransaction(@PathVariable("transactionId") UUID transactionId) {
         log.info("Load transaction with id: {}", transactionId);
@@ -63,10 +61,10 @@ public class TransactionController {
         return ResponseEntity.ok(transaction);
     }
 
-    @Operation(
-            summary = "Создание транзакции",
-            description = "Создаёт новую транзакцию и производит списание/начисление денег на счёт"
-    )
+    @Operation(summary = "Создание транзакции",
+            description = "Создаёт новую транзакцию и производит списание/начисление денег на счёт")
+    @ApiResponse(responseCode = "400",
+            description = "Некорректный запрос")
     @PostMapping
     public ResponseEntity<TransactionResponse> createTransaction(@Valid @RequestBody TransactionCreateRequest request,
                                                                  UriComponentsBuilder uriBuilder) {
@@ -78,10 +76,13 @@ public class TransactionController {
                 .body(transaction);
     }
 
-    @Operation(
-            summary = "Обновление транзакции",
-            description = "Обновляет транзакцию по её уникальному идентификатору"
-    )
+    @Operation(summary = "Обновление транзакции",
+            description = "Обновляет транзакцию по её уникальному идентификатору")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "400",
+                    description = "Некорректный запрос"),
+            @ApiResponse(responseCode = "404",
+                    description = "Транзакция не найдена")})
     @PutMapping("/{transactionId}")
     public ResponseEntity<TransactionResponse> updateTransaction(@PathVariable("transactionId") UUID transactionId,
                                                                  @Valid @RequestBody TransactionUpdateRequest request) {
@@ -90,10 +91,13 @@ public class TransactionController {
         return ResponseEntity.ok(transaction);
     }
 
-    @Operation(
-            summary = "Частичное обновление транзакции",
-            description = "Частично обновляет транзакцию по её уникальному идентификатору"
-    )
+    @Operation(summary = "Частичное обновление транзакции",
+            description = "Частично обновляет транзакцию по её уникальному идентификатору")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "400",
+                    description = "Некорректный запрос"),
+            @ApiResponse(responseCode = "404",
+                    description = "Транзакция не найдена")})
     @PatchMapping("/{transactionId}")
     public ResponseEntity<TransactionResponse> partialUpdateTransaction(@PathVariable("transactionId") UUID transactionId,
                                                                         @RequestBody JsonNode jsonNode) {
@@ -102,10 +106,8 @@ public class TransactionController {
         return ResponseEntity.ok(transaction);
     }
 
-    @Operation(
-            summary = "Удаление транзакции",
-            description = "Удаляет транзакцию по её уникальному идентификатору и производит её откат"
-    )
+    @Operation(summary = "Удаление транзакции",
+            description = "Удаляет транзакцию по её уникальному идентификатору и производит её откат")
     @DeleteMapping("/{transactionId}")
     public ResponseEntity<Void> deleteTransaction(@PathVariable("transactionId") UUID transactionId) {
         log.info("Delete transaction with id: {}", transactionId);
