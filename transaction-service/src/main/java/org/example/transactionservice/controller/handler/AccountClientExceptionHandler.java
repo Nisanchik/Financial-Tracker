@@ -19,8 +19,8 @@ public class AccountClientExceptionHandler {
 
     private final ObjectMapper objectMapper;
 
-    @ExceptionHandler(FeignException.BadRequest.class)
-    public ResponseEntity<ProblemDetail> handleFeignException(FeignException.BadRequest exception) {
+    @ExceptionHandler(FeignException.class)
+    public ResponseEntity<ProblemDetail> handleFeignException(FeignException exception) {
         log.error(exception.getMessage());
         String contentUTF8 = exception.contentUTF8();
         try {
