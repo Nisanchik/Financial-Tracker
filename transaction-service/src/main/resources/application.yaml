@@ -26,7 +26,7 @@ resilience4j:
           - java.io.IOException           # Сетевые ошибки
           - java.util.concurrent.TimeoutException # Таймауты
         ignore-exceptions:
-          - org.example.transactionservice.exception.TransactionServiceException
+          - ru.mirea.newrav1k.transactionservice.exception.TransactionServiceException
   retry:
     configs:
       default:
@@ -35,7 +35,7 @@ resilience4j:
         retry-exceptions:
           - org.springframework.orm.ObjectOptimisticLockingFailureException
         ignore-exceptions:
-          - org.example.transactionservice.exception.TransactionServiceException
+          - ru.mirea.newrav1k.transactionservice.exception.TransactionServiceException
 
 transaction-service:
   services:
