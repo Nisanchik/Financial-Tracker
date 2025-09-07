@@ -1,4 +1,4 @@
-package ru.mirea.newrav1k.categoryservice;
+package ru.mirea.nisanchik.categoryservice;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;

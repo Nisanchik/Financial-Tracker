@@ -1,4 +1,4 @@
-package ru.mirea.newrav1k.categoryservice;
+package ru.mirea.nisanchik.categoryservice;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
