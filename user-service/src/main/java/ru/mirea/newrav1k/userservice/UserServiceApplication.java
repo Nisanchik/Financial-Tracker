@@ -1,4 +1,4 @@
-package org.example.userservice;
+package ru.mirea.newrav1k.userservice;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;

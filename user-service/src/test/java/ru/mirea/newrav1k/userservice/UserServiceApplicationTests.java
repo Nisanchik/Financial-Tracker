@@ -1,4 +1,4 @@
-package org.example.userservice;
+package ru.mirea.newrav1k.userservice;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
