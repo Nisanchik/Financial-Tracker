@@ -2,15 +2,15 @@ spring:
   application:
     name: user-service
   datasource:
-    url: jdbc:postgresql://localhost:5432/${POSTGRES_DB:tracker-database}
-    username: ${POSTGRES_USER:admin}
-    password: ${POSTGRES_PASSWORD:password}
+    url: jdbc:postgresql://localhost:5432/${USER_DATABASE_NAME:user-db}
+    username: ${USER_DATABASE_USER:user-admin}
+    password: ${USER_DATABASE_PASSWORD:user-password}
     driver-class-name: org.postgresql.Driver
   jpa:
     hibernate:
       ddl-auto: create
   config:
-    import: optional:file:../../../.env # TODO: import data from .env file
+    import: optional:file:../../../docker/.env[.properties] # TODO: import data from .env file
 
 server:
   port: 8081

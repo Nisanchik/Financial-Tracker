@@ -1,9 +1,42 @@
 name: Financial-Tracker
 services:
-  postgresql:
+
+  user-db:
     image: postgres:latest
     restart: always
-    env_file:
-      - ../.env
+    environment:
+      POSTGRES_DB: $USER_DATABASE_NAME
+      POSTGRES_USER: $USER_DATABASE_USER
+      POSTGRES_PASSWORD: $USER_DATABASE_PASSWORD
+    networks:
+      - financial-network
     ports:
       - "5432:5432"
+
+  account-db:
+    image: postgres:latest
+    restart: always
+    environment:
+      POSTGRES_DB: $ACCOUNT_DATABASE_NAME
+      POSTGRES_USER: $ACCOUNT_DATABASE_USER
+      POSTGRES_PASSWORD: $ACCOUNT_DATABASE_PASSWORD
+    networks:
+      - financial-network
+    ports:
+      - "5433:5432"
+
+  transaction-db:
+    image: postgres:latest
+    restart: always
+    environment:
+      POSTGRES_DB: $TRANSACTION_DATABASE_NAME
+      POSTGRES_USER: $TRANSACTION_DATABASE_USER
+      POSTGRES_PASSWORD: $TRANSACTION_DATABASE_PASSWORD
+    networks:
+      - financial-network
+    ports:
+      - "5434:5432"
+
+networks:
+  financial-network:
+    driver: bridge

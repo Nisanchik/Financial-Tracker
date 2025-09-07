@@ -2,15 +2,15 @@ spring:
   application:
     name: account-service
   datasource:
-    url: jdbc:postgresql://localhost:5432/${POSTGRES_DB:tracker-database}
-    username: ${POSTGRES_USER:admin}
-    password: ${POSTGRES_PASSWORD:password}
+    url: jdbc:postgresql://localhost:5433/${ACCOUNT_DATABASE_NAME:account-db}
+    username: ${ACCOUNT_DATABASE_USER:account-admin}
+    password: ${ACCOUNT_DATABASE_PASSWORD:account-password}
     driver-class-name: org.postgresql.Driver
   jpa:
     hibernate:
       ddl-auto: create
   config:
-    import: optional:file:../../../.env # TODO: import data from .env file
+    import: optional:file:../../../docker/.env[.properties] # TODO: import data from .env file
 
 resilience4j:
   retry:
@@ -27,4 +27,4 @@ resilience4j:
         base-config: optimisticLockingConfig
 
 server:
-  port: 8083
+  port: 8082
