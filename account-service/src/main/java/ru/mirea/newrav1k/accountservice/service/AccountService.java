@@ -15,6 +15,7 @@ import org.springframework.web.server.ResponseStatusException;
 import ru.mirea.newrav1k.accountservice.exception.AccountBalanceException;
 import ru.mirea.newrav1k.accountservice.exception.AccountNotFoundException;
 import ru.mirea.newrav1k.accountservice.exception.AccountServiceException;
+import ru.mirea.newrav1k.accountservice.exception.AccountStateException;
 import ru.mirea.newrav1k.accountservice.exception.InsufficientBalanceException;
 import ru.mirea.newrav1k.accountservice.mapper.AccountMapper;
 import ru.mirea.newrav1k.accountservice.model.dto.AccountCreateRequest;
@@ -100,6 +101,7 @@ public class AccountService {
     public void updateBalance(UUID accountId, BigDecimal amount) {
         log.info("Updating account balance with id {}", accountId);
         Account account = findAccountByIdOrThrow(accountId);
+        validateAccountActive(account);
         if (amount.signum() < 0) {
             account.withdraw(amount.abs());
         } else {
@@ -153,7 +155,14 @@ public class AccountService {
     private BigDecimal findAccountBalance(UUID accountId) {
         return this.accountRepository.findById(accountId)
                 .map(Account::getBalance)
-                .orElse(BigDecimal.ZERO);
+                .orElseThrow(AccountNotFoundException::new);
+    }
+
+    private void validateAccountActive(Account account) {
+        if (!account.isActive()) {
+            log.warn("Account {} is not active", account.getUserId());
+            throw new AccountStateException();
+        }
     }
 
     private void updateBalanceFallback(UUID accountId, BigDecimal amount, Exception exception) {
@@ -166,6 +175,8 @@ public class AccountService {
             throw new AccountBalanceException(abe.getMessageCode(), new BigDecimal[]{amount});
         } else if (exception instanceof AccountNotFoundException) {
             throw new AccountNotFoundException();
+        } else if (exception instanceof AccountStateException) {
+            throw new AccountStateException();
         }
         throw new AccountServiceException(RETRY_EXHAUSTED, new String[]{exception.getMessage()});
     }

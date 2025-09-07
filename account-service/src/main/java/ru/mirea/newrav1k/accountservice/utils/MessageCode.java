@@ -12,6 +12,8 @@ public class MessageCode {
 
     public static final String CONCURRENT_MODIFICATION = "error.concurrent_modification";
 
+    public static final String ACCOUNT_INACTIVE = "error.account_inactive";
+
     public static final String INVALID_AMOUNT = "error.invalid_amount";
 
     public static final String GENERIC_ERROR = "error.generic";
