@@ -1,4 +1,4 @@
-package org.example.notificationservice;
+package ru.mirea.newrav1k.notificationservice;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
