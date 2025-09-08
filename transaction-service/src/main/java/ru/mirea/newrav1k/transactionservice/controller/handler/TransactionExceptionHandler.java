@@ -3,6 +3,7 @@ package ru.mirea.newrav1k.transactionservice.controller.handler;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import ru.mirea.newrav1k.transactionservice.exception.TransactionNotFoundException;
+import ru.mirea.newrav1k.transactionservice.exception.TransactionProcessingException;
 import ru.mirea.newrav1k.transactionservice.exception.TransactionServiceException;
 import org.springframework.context.MessageSource;
 import org.springframework.http.HttpStatus;
@@ -55,6 +56,8 @@ public class TransactionExceptionHandler {
     private HttpStatus getHttpStatus(TransactionServiceException exception) {
         if (exception instanceof TransactionNotFoundException) {
             return HttpStatus.NOT_FOUND;
+        } else if (exception instanceof TransactionProcessingException) {
+            return HttpStatus.SERVICE_UNAVAILABLE;
         }
         return HttpStatus.INTERNAL_SERVER_ERROR;
     }
