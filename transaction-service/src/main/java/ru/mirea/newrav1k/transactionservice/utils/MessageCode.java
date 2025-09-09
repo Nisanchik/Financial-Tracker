@@ -12,4 +12,6 @@ public class MessageCode {
 
     public static final String TRANSACTION_PROCESSING_FAILED = "error.transaction_processing_failed";
 
+    public static final String TRANSACTION_ALREADY_COMPLETED = "error.transaction_already_completed";
+
 }
