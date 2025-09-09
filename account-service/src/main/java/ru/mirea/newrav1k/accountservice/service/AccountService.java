@@ -3,8 +3,10 @@ package ru.mirea.newrav1k.accountservice.service;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.resilience4j.retry.annotation.Retry;
+import jakarta.persistence.LockTimeoutException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.CannotAcquireLockException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
@@ -165,10 +167,12 @@ public class AccountService {
         }
     }
 
-    private void updateBalanceFallback(UUID accountId, BigDecimal amount, Exception exception) {
+    private void updateBalanceFallback(UUID accountId, BigDecimal amount, Throwable exception) {
         log.warn("Failed to update account balance with id {}", accountId, exception);
-        if (exception instanceof ObjectOptimisticLockingFailureException) {
-            throw new ConcurrentModificationException();
+        if (exception instanceof ObjectOptimisticLockingFailureException ||
+                exception instanceof LockTimeoutException ||
+                exception instanceof CannotAcquireLockException) {
+            throw new ConcurrentModificationException("Concurrent update failed for account " + accountId);
         } else if (exception instanceof InsufficientBalanceException) {
             throw new InsufficientBalanceException(new Object[]{amount, findAccountBalance(accountId)});
         } else if (exception instanceof AccountBalanceException abe) {

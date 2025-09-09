@@ -19,6 +19,8 @@ resilience4j:
         max-attempts: 3
         wait-duration: 100ms
         retry-exceptions:
+          - jakarta.persistence.LockTimeoutException
+          - org.springframework.dao.CannotAcquireLockException
           - org.springframework.orm.ObjectOptimisticLockingFailureException
         ignore-exceptions:
           - ru.mirea.newrav1k.accountservice.exception.AccountServiceException
