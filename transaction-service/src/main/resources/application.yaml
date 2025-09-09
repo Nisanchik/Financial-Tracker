@@ -11,6 +11,8 @@ spring:
       ddl-auto: create
   config:
     import: optional:file:../../../docker/.env[.properties] # TODO: import data from .env file
+  kafka:
+    bootstrap-servers: 9092
 
 resilience4j:
   circuitbreaker:
@@ -41,6 +43,8 @@ transaction-service:
   services:
     account-service:
       base-url: http://localhost:8082
+  kafka:
+    group-id: ${spring.application.name}
 
 server:
   port: 8083
