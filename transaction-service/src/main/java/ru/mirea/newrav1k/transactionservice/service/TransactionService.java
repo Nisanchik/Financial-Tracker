@@ -1,19 +1,19 @@
 package ru.mirea.newrav1k.transactionservice.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
-import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
+import ru.mirea.newrav1k.transactionservice.event.publisher.TransactionEventPublisher;
 import ru.mirea.newrav1k.transactionservice.exception.TransactionNotFoundException;
 import ru.mirea.newrav1k.transactionservice.exception.TransactionProcessingException;
 import ru.mirea.newrav1k.transactionservice.exception.TransactionServiceException;
+import ru.mirea.newrav1k.transactionservice.exception.TransactionStatusException;
 import ru.mirea.newrav1k.transactionservice.mapper.TransactionMapper;
 import ru.mirea.newrav1k.transactionservice.model.dto.TransactionCreateRequest;
 import ru.mirea.newrav1k.transactionservice.model.dto.TransactionFilter;
@@ -21,9 +21,7 @@ import ru.mirea.newrav1k.transactionservice.model.dto.TransactionResponse;
 import ru.mirea.newrav1k.transactionservice.model.dto.TransactionUpdateRequest;
 import ru.mirea.newrav1k.transactionservice.model.entity.Transaction;
 import ru.mirea.newrav1k.transactionservice.model.enums.TransactionStatus;
-import ru.mirea.newrav1k.transactionservice.model.enums.TransactionType;
 import ru.mirea.newrav1k.transactionservice.repository.TransactionRepository;
-import ru.mirea.newrav1k.transactionservice.service.client.AccountClient;
 
 import java.math.BigDecimal;
 import java.util.UUID;
@@ -40,9 +38,9 @@ public class TransactionService {
 
     private final TransactionMapper transactionMapper;
 
-    private final ObjectMapper objectMapper;
+    private final TransactionEventPublisher transactionEventPublisher;
 
-    private final AccountClient accountClient;
+    private final BalanceService balanceService;
 
     public Page<TransactionResponse> findAll(TransactionFilter filter, Pageable pageable) {
         log.debug("Request to get all transactions");
@@ -62,38 +60,23 @@ public class TransactionService {
     public TransactionResponse create(TransactionCreateRequest request) {
         log.debug("Request to create a new transaction");
         Transaction transaction = savePendingTransaction(request);
-        try {
-            processUpdateBalance(transaction);
-            Transaction completedTransaction = saveCompletedTransaction(transaction);
-            return this.transactionMapper.toTransactionResponse(completedTransaction);
-        } catch (Exception exception) {
-            log.error("Transaction creation failed", exception);
-            throw new TransactionProcessingException();
-        }
-    }
 
-    private Transaction savePendingTransaction(TransactionCreateRequest request) {
-        Transaction transaction = buildTransactionFromRequest(request);
-        transaction.setStatus(TransactionStatus.PENDING);
-        return this.transactionRepository.save(transaction);
-    }
+        this.transactionEventPublisher.publishTransactionCreatedEvent(transaction);
 
-    private Transaction saveCompletedTransaction(Transaction transaction) {
-        transaction.setStatus(TransactionStatus.COMPLETED);
-        return this.transactionRepository.save(transaction);
+        return this.transactionMapper.toTransactionResponse(transaction);
     }
 
     @Transactional
     public TransactionResponse updateById(UUID transactionId, TransactionUpdateRequest request) {
-        log.debug("Request to update transaction by id {}", transactionId);
+        log.debug("Request to update transaction by id {} and request {}", transactionId, request);
         return this.transactionRepository.findById(transactionId)
                 .map(transaction -> {
                     if (request.description() != null) {
                         transaction.setDescription(request.description());
                     }
                     if (request.amount() != null) {
-                        transaction.setAmount(request.amount());
-                        // TODO: реализовать компенсирующие действия при изменении
+                        ensureNotCompletedTransaction(transaction);
+                        compensateAmount(transaction, request.amount());
                     }
                     return transaction;
                 })
@@ -103,12 +86,17 @@ public class TransactionService {
 
     @Transactional
     public TransactionResponse updateById(UUID transactionId, JsonNode jsonNode) {
-        log.debug("Request to update transaction by id {}", transactionId);
+        log.debug("Request to update transaction by id {} and jsonNode {}", transactionId, jsonNode);
         Transaction transaction = this.transactionRepository.findById(transactionId)
                 .orElseThrow(TransactionNotFoundException::new);
         try {
-            this.objectMapper.readerForUpdating(transaction).readValue(jsonNode);
-            // TODO: реализовать компенсирующие действия при изменении
+            if (jsonNode.has("description")) {
+                transaction.setDescription(jsonNode.get("description").asText());
+            }
+            if (jsonNode.has("amount")) {
+                ensureNotCompletedTransaction(transaction);
+                compensateAmount(transaction, jsonNode.decimalValue());
+            }
             return this.transactionMapper.toTransactionResponse(transaction);
         } catch (Exception exception) {
             log.error("Error while updating transaction with id {}", transactionId, exception);
@@ -123,16 +111,43 @@ public class TransactionService {
                 .orElseThrow(TransactionNotFoundException::new);
         if (transaction.getStatus() == TransactionStatus.COMPLETED) {
             try {
-                BigDecimal compensationAmount = transaction.getType() == TransactionType.INCOME
-                        ? transaction.getAmount().negate()
-                        : transaction.getAmount();
-                this.accountClient.updateBalance(transaction.getAccountId(), compensationAmount);
+                this.balanceService.compensateTransaction(transaction);
             } catch (Exception exception) {
                 log.error("Error while deleting transaction by id {}", transactionId, exception);
                 throw new TransactionProcessingException();
             }
         }
         this.transactionRepository.delete(transaction);
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void updateTransactionStatus(UUID transactionId, TransactionStatus status) {
+        log.debug("Request to update status of transaction by id {}", transactionId);
+        Transaction transaction = this.transactionRepository.findById(transactionId)
+                .orElseThrow(TransactionNotFoundException::new);
+        transaction.setStatus(status);
+        this.transactionRepository.save(transaction);
+    }
+
+    private Transaction savePendingTransaction(TransactionCreateRequest request) {
+        Transaction transaction = buildTransactionFromRequest(request);
+        transaction.setStatus(TransactionStatus.PENDING);
+        return this.transactionRepository.save(transaction);
+    }
+
+    private void compensateAmount(Transaction transaction, BigDecimal newAmount) {
+        BigDecimal oldAmount = transaction.getAmount();
+        BigDecimal delta = newAmount.subtract(oldAmount);
+        this.balanceService.updateBalance(transaction.getAccountId(), transaction.getType(), delta);
+        transaction.setAmount(newAmount);
+    }
+
+    private void ensureNotCompletedTransaction(Transaction transaction) {
+        log.debug("Request to ensure transaction is completed");
+        if (transaction.getStatus() == TransactionStatus.COMPLETED) {
+            log.warn("Transaction with id {} already completed", transaction.getId());
+            throw new TransactionStatusException();
+        }
     }
 
     private Transaction buildTransactionFromRequest(TransactionCreateRequest request) {
@@ -147,34 +162,6 @@ public class TransactionService {
         transaction.setTags(request.tags());
 
         return transaction;
-    }
-
-    @CircuitBreaker(name = "transactionService", fallbackMethod = "processUpdateBalanceFallback")
-    public void processUpdateBalance(Transaction transaction) {
-        if (transaction.getType().equals(TransactionType.INCOME)) {
-            this.accountClient.updateBalance(transaction.getAccountId(), transaction.getAmount());
-        } else if (transaction.getType().equals(TransactionType.EXPENSE)) {
-            this.accountClient.updateBalance(transaction.getAccountId(), transaction.getAmount().negate());
-        }
-    }
-
-    private void processUpdateBalanceFallback(Transaction transaction, CallNotPermittedException ex) {
-        log.warn("Processing update balance fallback");
-        // TODO: fallback для CircuitBreaker
-    }
-
-    private void processUpdateBalanceFallback(Transaction transaction, Exception ex) {
-        log.warn("Processing update balance fallback");
-        // TODO: fallback для CircuitBreaker
-    }
-
-    @Deprecated(forRemoval = true)
-    private void processPaymentTransaction(Transaction transaction) {
-        if (transaction.getType().equals(TransactionType.INCOME)) {
-            this.accountClient.depositBalance(transaction.getAccountId(), transaction.getAmount());
-        } else if (transaction.getType().equals(TransactionType.EXPENSE)) {
-            this.accountClient.withdrawBalance(transaction.getAccountId(), transaction.getAmount());
-        }
     }
 
 }
