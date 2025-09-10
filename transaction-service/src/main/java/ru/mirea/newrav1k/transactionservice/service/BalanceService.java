@@ -33,13 +33,13 @@ public class BalanceService {
     }
 
     @CircuitBreaker(name = "balanceService", fallbackMethod = "compensateTransactionFallback")
-    public void compensateTransaction(Transaction transaction) {
-        log.debug("Starting compensation of transaction {}", transaction);
-        BigDecimal compensationAmount = transaction.getType() == TransactionType.INCOME
-                ? transaction.getAmount().negate()
-                : transaction.getAmount();
-        log.debug("Successfully compensated transaction for account {}", transaction.getAccountId());
-        this.accountClient.updateBalance(transaction.getAccountId(), compensationAmount);
+    public void compensateTransaction(UUID accountId, TransactionType transactionType, BigDecimal amount) {
+        log.debug("Starting to compensate transaction for account {}", accountId);
+        BigDecimal compensationAmount = transactionType == TransactionType.INCOME
+                ? amount.negate()
+                : amount;
+        log.debug("Successfully compensated transaction for account {}", accountId);
+        this.accountClient.updateBalance(accountId, compensationAmount);
     }
 
     private void compensateTransactionFallback(Transaction transaction, Exception exception) {
