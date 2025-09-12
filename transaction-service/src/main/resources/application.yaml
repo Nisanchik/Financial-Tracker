@@ -12,7 +12,7 @@ spring:
   config:
     import: optional:file:../../../docker/.env[.properties] # TODO: import data from .env file
   kafka:
-    bootstrap-servers: 9092
+    bootstrap-servers: localhost:9092
 
 resilience4j:
   circuitbreaker:
