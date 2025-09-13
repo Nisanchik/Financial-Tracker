@@ -49,6 +49,7 @@ transaction-service:
       transaction-successfully-created: transaction.transaction.successfully.created.v1
       transaction-balance-failure: transaction.transaction.balance.failure.v1
       transaction-compensate: transaction.transaction.compensate.v1
+      transaction-compensate-difference-amount: transaction.transaction.compensate.difference.amount.v1
 
     group-id: ${spring.application.name}
 

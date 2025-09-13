@@ -9,7 +9,8 @@ import org.springframework.validation.annotation.Validated;
 public record TransactionTopicsProperties(
         @NotBlank String transactionSuccessfullyCreated,
         @NotBlank String transactionBalanceFailure,
-        @NotBlank String transactionCompensate
+        @NotBlank String transactionCompensate,
+        @NotBlank String transactionCompensateDifferenceAmount
 ) {
 
 }
