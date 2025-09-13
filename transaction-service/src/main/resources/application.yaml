@@ -46,12 +46,15 @@ transaction-service:
   kafka:
     topics:
       # Исходящие события
-      transaction-created: transaction.transaction.created.v1
-      transaction-cancelled: transaction.transaction.cancelled.v1
       transaction-successfully-created: transaction.transaction.successfully.created.v1
       transaction-balance-failure: transaction.transaction.balance.failure.v1
+      transaction-compensate: transaction.transaction.compensate.v1
 
     group-id: ${spring.application.name}
+
+logging:
+  level:
+    ru.mirea.newrav1k.transactionservice: debug
 
 server:
   port: 8083

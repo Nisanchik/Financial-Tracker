@@ -61,7 +61,12 @@ public class TransactionService {
         log.debug("Request to create a new transaction");
         Transaction transaction = savePendingTransaction(request);
 
-        this.transactionEventPublisher.publishInternalTransactionCreatedEvent(transaction);
+        this.transactionEventPublisher.publishInternalTransactionCreatedEvent(
+                transaction.getId(),
+                transaction.getAccountId(),
+                transaction.getType(),
+                transaction.getAmount()
+        );
 
         return this.transactionMapper.toTransactionResponse(transaction);
     }
@@ -143,7 +148,7 @@ public class TransactionService {
     private void compensateAmount(Transaction transaction, BigDecimal newAmount) {
         BigDecimal oldAmount = transaction.getAmount();
         BigDecimal delta = newAmount.subtract(oldAmount);
-        this.balanceService.updateBalance(transaction.getAccountId(), transaction.getType(), delta);
+        this.balanceService.updateBalance(transaction.getId(), transaction.getAccountId(), transaction.getType(), delta);
         transaction.setAmount(newAmount);
     }
 

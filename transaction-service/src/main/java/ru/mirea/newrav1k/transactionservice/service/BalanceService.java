@@ -4,6 +4,7 @@ import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import ru.mirea.newrav1k.transactionservice.event.publisher.TransactionEventPublisher;
 import ru.mirea.newrav1k.transactionservice.model.enums.TransactionType;
 import ru.mirea.newrav1k.transactionservice.service.client.AccountClient;
 
@@ -15,23 +16,26 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class BalanceService {
 
+    private final TransactionEventPublisher transactionEventPublisher;
+
     private final AccountClient accountClient;
 
-    @CircuitBreaker(name = "balanceService", fallbackMethod = "updateBalanceFallback")
-    public void updateBalance(UUID accountId, TransactionType transactionType, BigDecimal amount) {
-        log.debug("Updating balance for account {}", accountId);
+    @CircuitBreaker(name = "updateBalance", fallbackMethod = "updateBalanceFallback")
+    public void updateBalance(UUID transactionId, UUID accountId, TransactionType transactionType, BigDecimal amount) {
+        log.debug("Updating balance for account {} from transaction {}", accountId, transactionId);
         BigDecimal updateAmount = transactionType.equals(TransactionType.INCOME) ? amount : amount.negate();
         this.accountClient.updateBalance(accountId, updateAmount);
         log.debug("Successfully updated account balance for account {}", accountId);
     }
 
-    private void updateBalanceFallback(UUID accountId, TransactionType transactionType, BigDecimal amount, Exception exception) {
+    private void updateBalanceFallback(UUID transactionId, UUID accountId,
+                                       TransactionType transactionType, BigDecimal amount, Exception exception) {
         log.error("Could not update account balance for account {} (type={}, amount={})",
                 accountId, transactionType, amount, exception);
-        // TODO: добавить сохранение транзакции для будущей обработки
+        this.transactionEventPublisher.publishBalanceUpdateFailureEvent(transactionId, accountId, transactionType, amount);
     }
 
-    @CircuitBreaker(name = "balanceService", fallbackMethod = "compensateTransactionFallback")
+    @CircuitBreaker(name = "compensateTransaction", fallbackMethod = "compensateTransactionFallback")
     public void compensateTransaction(UUID accountId, TransactionType transactionType, BigDecimal amount) {
         log.debug("Starting to compensate transaction for account {}", accountId);
         BigDecimal compensationAmount = transactionType == TransactionType.INCOME
@@ -41,9 +45,10 @@ public class BalanceService {
         log.debug("Successfully compensated transaction for account {}", accountId);
     }
 
-    private void compensateTransactionFallback(UUID accountId, TransactionType transactionType, BigDecimal amount, Exception exception) {
+    private void compensateTransactionFallback(UUID accountId, TransactionType transactionType,
+                                               BigDecimal amount, Exception exception) {
         log.error("Could not compensate transaction for account {}", accountId, exception);
-        // TODO: добавить сохранение транзакции для будущей обработки
+        this.transactionEventPublisher.publishTransactionCompensateEvent(accountId, transactionType, amount);
     }
 
 }

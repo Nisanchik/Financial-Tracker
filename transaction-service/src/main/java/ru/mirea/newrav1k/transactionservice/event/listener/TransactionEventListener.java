@@ -27,7 +27,7 @@ public class TransactionEventListener {
     @TransactionalEventListener(classes = TransactionCreatedEvent.class)
     public void handleTransactionCreatedEvent(TransactionCreatedEvent event) {
         log.debug("Transaction created event: {}", event);
-        this.balanceService.updateBalance(event.accountId(), event.type(), event.amount());
+        this.balanceService.updateBalance(event.transactionId(), event.accountId(), event.type(), event.amount());
         this.transactionEventPublisher.publishTransactionSuccessCreatedEvent(event.transactionId());
     }
 
@@ -36,12 +36,17 @@ public class TransactionEventListener {
     public void handleTransactionCancelledEvent(TransactionCancelledEvent event) {
         log.debug("Transaction cancelled event: {}", event);
         this.balanceService.compensateTransaction(event.accountId(), event.type(), event.amount());
+        this.transactionService.updateTransactionStatus(event.transactionId(), TransactionStatus.CANCELLED);
     }
 
     private void handleTransactionCreatedEventFallback(TransactionCreatedEvent event, Throwable throwable) {
-        log.error("Transaction created event: {}", event, throwable);
-        this.transactionService.updateTransactionStatus(event.transactionId(), TransactionStatus.FAILED);
-        this.transactionEventPublisher.publishBalanceUpdateFailureEvent(event.transactionId(), event.accountId());
+        log.error("Transaction created event failed: {}", event, throwable);
+        this.transactionEventPublisher.publishBalanceUpdateFailureEvent(
+                event.transactionId(),
+                event.accountId(),
+                event.type(),
+                event.amount()
+        );
     }
 
     private void handleTransactionCancelledEventFallback(TransactionCancelledEvent event, Throwable throwable) {

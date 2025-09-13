@@ -7,9 +7,9 @@ import org.springframework.stereotype.Component;
 import ru.mirea.newrav1k.transactionservice.configuration.properties.TransactionTopicsProperties;
 import ru.mirea.newrav1k.transactionservice.event.BalanceUpdateFailureEvent;
 import ru.mirea.newrav1k.transactionservice.event.TransactionCancelledEvent;
+import ru.mirea.newrav1k.transactionservice.event.TransactionCompensateEvent;
 import ru.mirea.newrav1k.transactionservice.event.TransactionCreatedEvent;
 import ru.mirea.newrav1k.transactionservice.event.TransactionSuccessCreatedEvent;
-import ru.mirea.newrav1k.transactionservice.model.entity.Transaction;
 import ru.mirea.newrav1k.transactionservice.model.enums.TransactionType;
 import ru.mirea.newrav1k.transactionservice.service.OutboxService;
 
@@ -21,7 +21,7 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class TransactionEventPublisher {
 
-    private static final String AGGREGATE_TYPE = "Transaction";
+    private static final String AGGREGATE_TYPE_TRANSACTION = "Transaction";
 
     private final OutboxService outboxService;
 
@@ -29,21 +29,22 @@ public class TransactionEventPublisher {
 
     private final ApplicationEventPublisher eventPublisher;
 
-    public void publishInternalTransactionCreatedEvent(Transaction transaction) {
+    public void publishInternalTransactionCreatedEvent(UUID transactionId, UUID accountId,
+                                                       TransactionType transactionType, BigDecimal amount) {
         log.debug("Publishing TransactionCreatedEvent");
         TransactionCreatedEvent event = new TransactionCreatedEvent(
                 UUID.randomUUID(),
-                transaction.getId(),
-                transaction.getAccountId(),
-                transaction.getType(),
-                transaction.getAmount()
+                transactionId,
+                accountId,
+                transactionType,
+                amount
         );
 
         this.eventPublisher.publishEvent(event);
     }
 
     public void publishInternalTransactionCancelledEvent(UUID transactionId, UUID accountId,
-                                                 TransactionType transactionType, BigDecimal amount) {
+                                                         TransactionType transactionType, BigDecimal amount) {
         log.debug("Publishing TransactionCancelledEvent");
         TransactionCancelledEvent event = new TransactionCancelledEvent(
                 UUID.randomUUID(),
@@ -63,20 +64,36 @@ public class TransactionEventPublisher {
                 transactionId
         );
 
-        this.outboxService.saveEvent(AGGREGATE_TYPE, transactionId,
-                this.topics.transactionSuccessfullyCreated(), event.getClass().getSimpleName(), event);
+        this.outboxService.saveEvent(AGGREGATE_TYPE_TRANSACTION, transactionId,
+                this.topics.transactionSuccessfullyCreated(), TransactionSuccessCreatedEvent.class.getSimpleName(), event);
     }
 
-    public void publishBalanceUpdateFailureEvent(UUID transactionId, UUID accountId) {
+    public void publishBalanceUpdateFailureEvent(UUID transactionId, UUID accountId,
+                                                 TransactionType transactionType, BigDecimal amount) {
         log.debug("Publishing BalanceUpdateFailureEvent");
         BalanceUpdateFailureEvent event = new BalanceUpdateFailureEvent(
                 UUID.randomUUID(),
                 transactionId,
-                accountId
+                accountId,
+                transactionType,
+                amount
         );
 
-        this.outboxService.saveEvent(AGGREGATE_TYPE, transactionId,
-                this.topics.transactionBalanceFailure(), event.getClass().getSimpleName(), event);
+        this.outboxService.saveEvent(AGGREGATE_TYPE_TRANSACTION, transactionId,
+                this.topics.transactionBalanceFailure(), BalanceUpdateFailureEvent.class.getSimpleName(), event);
+    }
+
+    public void publishTransactionCompensateEvent(UUID accountId, TransactionType transactionType, BigDecimal amount) {
+        log.debug("Publishing CompensationEvent");
+        TransactionCompensateEvent event = new TransactionCompensateEvent(
+                UUID.randomUUID(),
+                accountId,
+                transactionType,
+                amount
+        );
+
+        this.outboxService.saveEvent(AGGREGATE_TYPE_TRANSACTION, accountId,
+                this.topics.transactionCompensate(), TransactionCompensateEvent.class.getSimpleName(), event);
     }
 
 }

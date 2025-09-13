@@ -10,7 +10,8 @@ public record TransactionTopicsProperties(
         @NotBlank String transactionCreated,
         @NotBlank String transactionCancelled,
         @NotBlank String transactionSuccessfullyCreated,
-        @NotBlank String transactionBalanceFailure
+        @NotBlank String transactionBalanceFailure,
+        @NotBlank String transactionCompensate
 ) {
 
 }
