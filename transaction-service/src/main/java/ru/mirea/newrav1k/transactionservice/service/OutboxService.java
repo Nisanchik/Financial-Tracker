@@ -33,6 +33,11 @@ public class OutboxService {
             Object event
     ) {
         try {
+            log.debug("Saving new outbox event");
+            if (this.outboxRepository.existsByAggregateIdAndEventType(aggregateId, eventType)) {
+                log.info("Outbox already exists (aggregateId={}, event={})", aggregateId, eventType);
+                return;
+            }
             String payload = this.objectMapper.writeValueAsString(event);
 
             OutboxEvent outboxEvent = OutboxEvent.builder()

@@ -15,4 +15,6 @@ public interface OutboxRepository extends JpaRepository<OutboxEvent, UUID> {
     @EntityGraph(attributePaths = {"payload"})
     List<OutboxEvent> findTop50ByStatusOrderByCreatedAtAsc(OutboxStatus status);
 
+    boolean existsByAggregateIdAndEventType(UUID aggregateId, String eventType);
+
 }
