@@ -6,7 +6,7 @@ import java.math.BigDecimal;
 import java.util.UUID;
 
 public record TransactionCancelledEvent(
-        UUID id,
+        UUID compensationId,
         UUID transactionId,
         UUID accountId,
         TransactionType type,
