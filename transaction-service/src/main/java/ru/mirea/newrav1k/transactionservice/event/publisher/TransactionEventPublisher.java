@@ -4,9 +4,12 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 import ru.mirea.newrav1k.transactionservice.configuration.properties.TransactionTopicsProperties;
 import ru.mirea.newrav1k.transactionservice.event.BalanceUpdateFailureEvent;
 import ru.mirea.newrav1k.transactionservice.event.TransactionCancelledEvent;
+import ru.mirea.newrav1k.transactionservice.event.TransactionCompensateDifferenceAmountEvent;
 import ru.mirea.newrav1k.transactionservice.event.TransactionCompensateEvent;
 import ru.mirea.newrav1k.transactionservice.event.TransactionCreatedEvent;
 import ru.mirea.newrav1k.transactionservice.event.TransactionSuccessCreatedEvent;
@@ -57,6 +60,22 @@ public class TransactionEventPublisher {
         this.eventPublisher.publishEvent(event);
     }
 
+    public void publishInternalTransactionCompensateDifferenceAmountEvent(UUID transactionId, UUID accountId,
+                                                                          TransactionType transactionType, BigDecimal oldAmount, BigDecimal newAmount) {
+        log.debug("Publishing TransactionCompensateDifferenceAmountEvent");
+        TransactionCompensateDifferenceAmountEvent event = new TransactionCompensateDifferenceAmountEvent(
+                UUID.randomUUID(),
+                transactionId,
+                accountId,
+                transactionType,
+                oldAmount,
+                newAmount
+        );
+
+        this.eventPublisher.publishEvent(event);
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void publishTransactionSuccessCreatedEvent(UUID transactionId) {
         log.debug("Publishing TransactionSuccessCreatedEvent");
         TransactionSuccessCreatedEvent event = new TransactionSuccessCreatedEvent(
@@ -68,6 +87,7 @@ public class TransactionEventPublisher {
                 this.topics.transactionSuccessfullyCreated(), TransactionSuccessCreatedEvent.class.getSimpleName(), event);
     }
 
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void publishBalanceUpdateFailureEvent(UUID transactionId, UUID accountId,
                                                  TransactionType transactionType, BigDecimal amount) {
         log.debug("Publishing BalanceUpdateFailureEvent");
@@ -83,6 +103,7 @@ public class TransactionEventPublisher {
                 this.topics.transactionBalanceFailure(), BalanceUpdateFailureEvent.class.getSimpleName(), event);
     }
 
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void publishTransactionCompensateEvent(UUID transactionId, UUID accountId,
                                                   TransactionType transactionType, BigDecimal amount) {
         log.debug("Publishing CompensationEvent");
@@ -94,8 +115,25 @@ public class TransactionEventPublisher {
                 amount
         );
 
-        this.outboxService.saveEvent(AGGREGATE_TYPE_TRANSACTION, accountId,
+        this.outboxService.saveEvent(AGGREGATE_TYPE_TRANSACTION, transactionId,
                 this.topics.transactionCompensate(), TransactionCompensateEvent.class.getSimpleName(), event);
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void publishTransactionCompensateDifferenceAmountEvent(UUID transactionId, UUID accountId,
+                                                                  TransactionType transactionType, BigDecimal oldAmount, BigDecimal newAmount) {
+        log.debug("Publishing TransactionCompensateDifferenceAmountEvent");
+        TransactionCompensateDifferenceAmountEvent event = new TransactionCompensateDifferenceAmountEvent(
+                UUID.randomUUID(),
+                transactionId,
+                accountId,
+                transactionType,
+                oldAmount,
+                newAmount
+        );
+
+        this.outboxService.saveEvent(AGGREGATE_TYPE_TRANSACTION, transactionId,
+                this.topics.transactionCompensateDifferenceAmount(), TransactionCompensateDifferenceAmountEvent.class.getSimpleName(), event);
     }
 
 }
