@@ -4,7 +4,6 @@ import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-import ru.mirea.newrav1k.transactionservice.model.entity.Transaction;
 import ru.mirea.newrav1k.transactionservice.model.enums.TransactionType;
 import ru.mirea.newrav1k.transactionservice.service.client.AccountClient;
 
@@ -38,12 +37,12 @@ public class BalanceService {
         BigDecimal compensationAmount = transactionType == TransactionType.INCOME
                 ? amount.negate()
                 : amount;
-        log.debug("Successfully compensated transaction for account {}", accountId);
         this.accountClient.updateBalance(accountId, compensationAmount);
+        log.debug("Successfully compensated transaction for account {}", accountId);
     }
 
-    private void compensateTransactionFallback(Transaction transaction, Exception exception) {
-        log.error("Could not compensate transaction for account {}", transaction.getAccountId(), exception);
+    private void compensateTransactionFallback(UUID accountId, TransactionType transactionType, BigDecimal amount, Exception exception) {
+        log.error("Could not compensate transaction for account {}", accountId, exception);
         // TODO: добавить сохранение транзакции для будущей обработки
     }
 
