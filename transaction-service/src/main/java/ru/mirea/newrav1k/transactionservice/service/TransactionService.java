@@ -61,7 +61,7 @@ public class TransactionService {
         log.debug("Request to create a new transaction");
         Transaction transaction = savePendingTransaction(request);
 
-        this.transactionEventPublisher.publishTransactionCreatedEvent(transaction);
+        this.transactionEventPublisher.publishInternalTransactionCreatedEvent(transaction);
 
         return this.transactionMapper.toTransactionResponse(transaction);
     }
@@ -111,7 +111,7 @@ public class TransactionService {
                 .orElseThrow(TransactionNotFoundException::new);
         if (transaction.getStatus() == TransactionStatus.COMPLETED) {
             try {
-                this.transactionEventPublisher.publishTransactionCancelledEvent(
+                this.transactionEventPublisher.publishInternalTransactionCancelledEvent(
                         transaction.getId(),
                         transaction.getAccountId(),
                         transaction.getType(),
