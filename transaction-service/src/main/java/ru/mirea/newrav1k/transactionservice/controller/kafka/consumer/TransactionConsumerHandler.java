@@ -46,7 +46,7 @@ public class TransactionConsumerHandler {
     public void handleBalanceUpdateFailure(@Payload BalanceUpdateFailureEvent event) {
         log.debug("Handling BalanceUpdateFailureEvent {}", event);
         try {
-            this.balanceService.compensateTransaction(event.accountId(), event.type(), event.amount());
+            this.balanceService.compensateTransaction(event.transactionId(), event.accountId(), event.type(), event.amount());
 
             this.transactionService.updateTransactionStatus(event.transactionId(), TransactionStatus.FAILED);
 
@@ -64,7 +64,7 @@ public class TransactionConsumerHandler {
     public void handleCompensationEvent(@Payload TransactionCompensateEvent event) {
         log.debug("Handling CompensationEvent {}", event);
         try {
-            this.balanceService.compensateTransaction(event.accountId(), event.type(), event.amount());
+            this.balanceService.compensateTransaction(event.transactionId(),event.accountId(), event.type(), event.amount());
 
             this.processedEventService.markEventAsProcessed(new ProcessedEvent(event.eventId()));
         } catch (DataIntegrityViolationException exception) {

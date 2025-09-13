@@ -7,6 +7,7 @@ import java.util.UUID;
 
 public record TransactionCompensateEvent(
         UUID eventId,
+        UUID transactionId,
         UUID accountId,
         TransactionType type,
         BigDecimal amount

@@ -35,7 +35,7 @@ public class TransactionEventListener {
     @TransactionalEventListener(classes = TransactionCancelledEvent.class)
     public void handleTransactionCancelledEvent(TransactionCancelledEvent event) {
         log.debug("Transaction cancelled event: {}", event);
-        this.balanceService.compensateTransaction(event.accountId(), event.type(), event.amount());
+        this.balanceService.compensateTransaction(event.transactionId(), event.accountId(), event.type(), event.amount());
         this.transactionService.updateTransactionStatus(event.transactionId(), TransactionStatus.CANCELLED);
     }
 

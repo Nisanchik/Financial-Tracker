@@ -25,6 +25,8 @@ public interface AccountClient {
     void depositBalance(@PathVariable("accountId") UUID accountId, @RequestParam("amount") BigDecimal amount);
 
     @PostMapping(value = "/api/accounts/{accountId}/update-balance", consumes = "application/json")
-    void updateBalance(@PathVariable("accountId") UUID accountId, @RequestParam("amount") BigDecimal amount);
+    void updateBalance(@PathVariable("accountId") UUID accountId,
+                       @RequestParam("transactionId") UUID transactionId,
+                       @RequestParam("amount") BigDecimal amount);
 
 }

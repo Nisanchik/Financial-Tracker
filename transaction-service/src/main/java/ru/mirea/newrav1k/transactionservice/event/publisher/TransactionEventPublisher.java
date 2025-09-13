@@ -83,10 +83,12 @@ public class TransactionEventPublisher {
                 this.topics.transactionBalanceFailure(), BalanceUpdateFailureEvent.class.getSimpleName(), event);
     }
 
-    public void publishTransactionCompensateEvent(UUID accountId, TransactionType transactionType, BigDecimal amount) {
+    public void publishTransactionCompensateEvent(UUID transactionId, UUID accountId,
+                                                  TransactionType transactionType, BigDecimal amount) {
         log.debug("Publishing CompensationEvent");
         TransactionCompensateEvent event = new TransactionCompensateEvent(
                 UUID.randomUUID(),
+                transactionId,
                 accountId,
                 transactionType,
                 amount

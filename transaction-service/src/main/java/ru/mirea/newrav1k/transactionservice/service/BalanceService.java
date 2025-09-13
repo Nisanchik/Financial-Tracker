@@ -24,31 +24,30 @@ public class BalanceService {
     public void updateBalance(UUID transactionId, UUID accountId, TransactionType transactionType, BigDecimal amount) {
         log.debug("Updating balance for account {} from transaction {}", accountId, transactionId);
         BigDecimal updateAmount = transactionType.equals(TransactionType.INCOME) ? amount : amount.negate();
-        this.accountClient.updateBalance(accountId, updateAmount);
+        this.accountClient.updateBalance(accountId, transactionId, updateAmount);
         log.debug("Successfully updated account balance for account {}", accountId);
     }
 
     private void updateBalanceFallback(UUID transactionId, UUID accountId,
-                                       TransactionType transactionType, BigDecimal amount, Exception exception) {
-        log.error("Could not update account balance for account {} (type={}, amount={})",
-                accountId, transactionType, amount, exception);
+                                       TransactionType transactionType, BigDecimal amount, Throwable exception) {
+        log.error("Error updating balance for account {} from transaction {}", accountId, transactionId, exception);
         this.transactionEventPublisher.publishBalanceUpdateFailureEvent(transactionId, accountId, transactionType, amount);
     }
 
     @CircuitBreaker(name = "compensateTransaction", fallbackMethod = "compensateTransactionFallback")
-    public void compensateTransaction(UUID accountId, TransactionType transactionType, BigDecimal amount) {
+    public void compensateTransaction(UUID transactionId, UUID accountId, TransactionType transactionType, BigDecimal amount) {
         log.debug("Starting to compensate transaction for account {}", accountId);
         BigDecimal compensationAmount = transactionType == TransactionType.INCOME
                 ? amount.negate()
                 : amount;
-        this.accountClient.updateBalance(accountId, compensationAmount);
+        this.accountClient.updateBalance(accountId, transactionId, compensationAmount);
         log.debug("Successfully compensated transaction for account {}", accountId);
     }
 
-    private void compensateTransactionFallback(UUID accountId, TransactionType transactionType,
-                                               BigDecimal amount, Exception exception) {
-        log.error("Could not compensate transaction for account {}", accountId, exception);
-        this.transactionEventPublisher.publishTransactionCompensateEvent(accountId, transactionType, amount);
+    private void compensateTransactionFallback(UUID transactionId, UUID accountId,
+                                               TransactionType transactionType, BigDecimal amount, Throwable exception) {
+        log.error("Cannot compensate transaction {} for account {}", transactionId, accountId, exception);
+        this.transactionEventPublisher.publishTransactionCompensateEvent(transactionId, accountId, transactionType, amount);
     }
 
 }

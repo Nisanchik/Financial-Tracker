@@ -7,8 +7,6 @@ import org.springframework.validation.annotation.Validated;
 @Validated
 @ConfigurationProperties(prefix = "transaction-service.kafka.topics")
 public record TransactionTopicsProperties(
-        @NotBlank String transactionCreated,
-        @NotBlank String transactionCancelled,
         @NotBlank String transactionSuccessfullyCreated,
         @NotBlank String transactionBalanceFailure,
         @NotBlank String transactionCompensate
