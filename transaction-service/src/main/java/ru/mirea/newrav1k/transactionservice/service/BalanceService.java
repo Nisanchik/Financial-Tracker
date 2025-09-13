@@ -50,4 +50,28 @@ public class BalanceService {
         this.transactionEventPublisher.publishTransactionCompensateEvent(transactionId, accountId, transactionType, amount);
     }
 
+    @CircuitBreaker(name = "compensateDifferenceAmount", fallbackMethod = "compensateDifferenceAmountFallback")
+    public void compensateDifferenceAmount(UUID transactionId, UUID accountId,
+                                           TransactionType transactionType, BigDecimal oldAmount, BigDecimal newAmount) {
+        log.debug("Starting to compensate difference amount for account {}", accountId);
+        BigDecimal compensationAmount = newAmount.subtract(oldAmount);
+        if (transactionType.equals(TransactionType.EXPENSE)) {
+            compensationAmount = compensationAmount.negate();
+        }
+        this.accountClient.updateBalance(accountId, transactionId, compensationAmount);
+        log.debug("Successfully compensated difference amount for account {}", accountId);
+    }
+
+    private void compensateDifferenceAmountFallback(UUID transactionId, UUID accountId, TransactionType transactionType,
+                                                    BigDecimal oldAmount, BigDecimal newAmount, Throwable exception) {
+        log.error("Cannot compensate difference amount for account {} with transaction type {}", accountId, transactionType, exception);
+        this.transactionEventPublisher.publishTransactionCompensateDifferenceAmountEvent(
+                transactionId,
+                accountId,
+                transactionType,
+                oldAmount,
+                newAmount
+        );
+    }
+
 }

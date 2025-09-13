@@ -13,7 +13,6 @@ import ru.mirea.newrav1k.transactionservice.event.publisher.TransactionEventPubl
 import ru.mirea.newrav1k.transactionservice.exception.TransactionNotFoundException;
 import ru.mirea.newrav1k.transactionservice.exception.TransactionProcessingException;
 import ru.mirea.newrav1k.transactionservice.exception.TransactionServiceException;
-import ru.mirea.newrav1k.transactionservice.exception.TransactionStatusException;
 import ru.mirea.newrav1k.transactionservice.mapper.TransactionMapper;
 import ru.mirea.newrav1k.transactionservice.model.dto.TransactionCreateRequest;
 import ru.mirea.newrav1k.transactionservice.model.dto.TransactionFilter;
@@ -39,8 +38,6 @@ public class TransactionService {
     private final TransactionMapper transactionMapper;
 
     private final TransactionEventPublisher transactionEventPublisher;
-
-    private final BalanceService balanceService;
 
     public Page<TransactionResponse> findAll(TransactionFilter filter, Pageable pageable) {
         log.debug("Request to get all transactions");
@@ -80,8 +77,18 @@ public class TransactionService {
                         transaction.setDescription(request.description());
                     }
                     if (request.amount() != null) {
-                        ensureNotCompletedTransaction(transaction);
-                        compensateAmount(transaction, request.amount());
+                        if (!transaction.getAmount().equals(request.amount())) {
+                            this.transactionEventPublisher.publishInternalTransactionCompensateDifferenceAmountEvent(
+                                    transaction.getId(),
+                                    transaction.getAccountId(),
+                                    transaction.getType(),
+                                    transaction.getAmount(),
+                                    request.amount()
+                            );
+                            transaction.setAmount(request.amount());
+                        } else {
+                            log.warn("Transaction amount equals request amount {}", request.amount());
+                        }
                     }
                     return transaction;
                 })
@@ -99,8 +106,19 @@ public class TransactionService {
                 transaction.setDescription(jsonNode.get("description").asText());
             }
             if (jsonNode.has("amount")) {
-                ensureNotCompletedTransaction(transaction);
-                compensateAmount(transaction, jsonNode.decimalValue());
+                BigDecimal requestAmount = jsonNode.get("amount").decimalValue();
+                if (!transaction.getAmount().equals(requestAmount)) {
+                    this.transactionEventPublisher.publishInternalTransactionCompensateDifferenceAmountEvent(
+                            transaction.getId(),
+                            transaction.getAccountId(),
+                            transaction.getType(),
+                            transaction.getAmount(),
+                            requestAmount
+                    );
+                    transaction.setAmount(requestAmount);
+                } else {
+                    log.warn("Transaction amount equals request amount {}", requestAmount);
+                }
             }
             return this.transactionMapper.toTransactionResponse(transaction);
         } catch (Exception exception) {
@@ -143,21 +161,6 @@ public class TransactionService {
         Transaction transaction = buildTransactionFromRequest(request);
         transaction.setStatus(TransactionStatus.PENDING);
         return this.transactionRepository.save(transaction);
-    }
-
-    private void compensateAmount(Transaction transaction, BigDecimal newAmount) {
-        BigDecimal oldAmount = transaction.getAmount();
-        BigDecimal delta = newAmount.subtract(oldAmount);
-        this.balanceService.updateBalance(transaction.getId(), transaction.getAccountId(), transaction.getType(), delta);
-        transaction.setAmount(newAmount);
-    }
-
-    private void ensureNotCompletedTransaction(Transaction transaction) {
-        log.debug("Request to ensure transaction is completed");
-        if (transaction.getStatus() == TransactionStatus.COMPLETED) {
-            log.warn("Transaction with id {} already completed", transaction.getId());
-            throw new TransactionStatusException();
-        }
     }
 
     private Transaction buildTransactionFromRequest(TransactionCreateRequest request) {
