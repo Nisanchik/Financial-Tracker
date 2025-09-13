@@ -4,6 +4,7 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
+import jakarta.persistence.Index;
 import jakarta.persistence.Lob;
 import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
@@ -23,7 +24,10 @@ import java.util.UUID;
 @Entity
 @Table(
         name = "t_outbox_events",
-        schema = "transaction_management"
+        schema = "transaction_management",
+        indexes = {
+                @Index(name = "idx_outbox_event_created", columnList = "status, createdAt"),
+        }
 )
 public class OutboxEvent extends BaseEntity {
 
