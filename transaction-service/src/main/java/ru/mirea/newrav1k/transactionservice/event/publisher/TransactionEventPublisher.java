@@ -38,14 +38,15 @@ public class TransactionEventPublisher {
                 this.topics.transactionCreated(), event.getClass().getSimpleName(), event);
     }
 
-    public void publishTransactionCancelledEvent(Transaction transaction) {
+    public void publishTransactionCancelledEvent(UUID transactionId, UUID accountId,
+                                                 TransactionType transactionType, BigDecimal amount) {
         log.debug("Publishing TransactionCancelledEvent");
         TransactionCancelledEvent event = new TransactionCancelledEvent(
                 UUID.randomUUID(),
-                transaction.getId(),
-                transaction.getAccountId(),
-                transaction.getType(),
-                transaction.getAmount()
+                transactionId,
+                accountId,
+                transactionType,
+                amount
         );
 
         this.outboxService.saveEvent(AGGREGATE_TYPE, transaction.getId(),

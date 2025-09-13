@@ -111,7 +111,12 @@ public class TransactionService {
                 .orElseThrow(TransactionNotFoundException::new);
         if (transaction.getStatus() == TransactionStatus.COMPLETED) {
             try {
-                this.transactionEventPublisher.publishTransactionCancelledEvent(transaction);
+                this.transactionEventPublisher.publishTransactionCancelledEvent(
+                        transaction.getId(),
+                        transaction.getAccountId(),
+                        transaction.getType(),
+                        transaction.getAmount()
+                );
             } catch (Exception exception) {
                 log.error("Error while deleting transaction by id {}", transactionId, exception);
                 throw new TransactionProcessingException();
