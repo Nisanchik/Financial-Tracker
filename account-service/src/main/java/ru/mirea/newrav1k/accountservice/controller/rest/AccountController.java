@@ -125,9 +125,10 @@ public class AccountController {
                     description = "Аккаунт не найден")})
     @PostMapping("/{accountId}/update-balance") // @PostMapping для корректной работы FeignClient
     public ResponseEntity<Void> updateAccountBalance(@PathVariable("accountId") UUID accountId,
-                                                                @RequestParam("amount") BigDecimal amount) {
+                                                     @RequestParam("transactionId") UUID transactionId,
+                                                     @RequestParam("amount") BigDecimal amount) {
         log.info("Updating account balance for account {}", accountId);
-        this.accountService.updateBalance(accountId, amount);
+        this.accountService.updateBalance(accountId, transactionId, amount);
         return ResponseEntity.noContent().build();
     }
 

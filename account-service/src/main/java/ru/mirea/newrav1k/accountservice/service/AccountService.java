@@ -2,16 +2,21 @@ package ru.mirea.newrav1k.accountservice.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import io.github.resilience4j.retry.annotation.Retry;
 import jakarta.persistence.LockTimeoutException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.CannotAcquireLockException;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
+import org.springframework.retry.annotation.Backoff;
+import org.springframework.retry.annotation.Recover;
+import org.springframework.retry.annotation.Retryable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 import ru.mirea.newrav1k.accountservice.exception.AccountBalanceException;
@@ -24,7 +29,9 @@ import ru.mirea.newrav1k.accountservice.model.dto.AccountCreateRequest;
 import ru.mirea.newrav1k.accountservice.model.dto.AccountResponse;
 import ru.mirea.newrav1k.accountservice.model.dto.AccountUpdateRequest;
 import ru.mirea.newrav1k.accountservice.model.entity.Account;
+import ru.mirea.newrav1k.accountservice.model.entity.BankOperation;
 import ru.mirea.newrav1k.accountservice.repository.AccountRepository;
+import ru.mirea.newrav1k.accountservice.repository.BankOperationRepository;
 
 import java.math.BigDecimal;
 import java.util.ConcurrentModificationException;
@@ -37,6 +44,8 @@ import static ru.mirea.newrav1k.accountservice.utils.MessageCode.RETRY_EXHAUSTED
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class AccountService {
+
+    private final BankOperationRepository bankOperationRepository;
 
     private final AccountRepository accountRepository;
 
@@ -98,11 +107,23 @@ public class AccountService {
         this.accountRepository.deleteById(accountId);
     }
 
-    @Transactional
-    @Retry(name = "accountService", fallbackMethod = "updateBalanceFallback")
-    public void updateBalance(UUID accountId, BigDecimal amount) {
-        log.info("Updating account balance with id {}", accountId);
-        Account account = findAccountByIdOrThrow(accountId);
+    @Retryable(
+            retryFor = {
+                    ObjectOptimisticLockingFailureException.class,
+                    OptimisticLockingFailureException.class,
+                    DataIntegrityViolationException.class,
+            }, backoff = @Backoff(value = 300, maxDelay = 2000, multiplier = 2)
+    )
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void updateBalance(UUID accountId, UUID transactionId, BigDecimal amount) {
+        log.info("Updating account balance for account {} from transaction {}", accountId, transactionId);
+        if (this.bankOperationRepository.existsByTransactionId(transactionId)) {
+            log.warn("Account was updated from transaction with id {}", transactionId);
+            return;
+        }
+        this.bankOperationRepository.save(new BankOperation(transactionId, accountId, amount));
+        Account account = this.accountRepository.findByIdForPessimisticLock(accountId)
+                .orElseThrow(AccountNotFoundException::new);
         validateAccountActive(account);
         if (amount.signum() < 0) {
             account.withdraw(amount.abs());
@@ -167,12 +188,19 @@ public class AccountService {
         }
     }
 
+    @Recover
+    public void updateBalanceRecover(ObjectOptimisticLockingFailureException ex, UUID accountId, BigDecimal amount) {
+        log.error("Failed to update balance for account {} after all retries", accountId, ex);
+        throw new ConcurrentModificationException(
+                "Concurrent update failed for account " + accountId + " after all retries", ex);
+    }
+
     private void updateBalanceFallback(UUID accountId, BigDecimal amount, Throwable exception) {
         log.warn("Failed to update account balance with id {}", accountId, exception);
         if (exception instanceof ObjectOptimisticLockingFailureException ||
                 exception instanceof LockTimeoutException ||
                 exception instanceof CannotAcquireLockException) {
-            throw new ConcurrentModificationException("Concurrent update failed for account " + accountId);
+            throw new ConcurrentModificationException();
         } else if (exception instanceof InsufficientBalanceException) {
             throw new InsufficientBalanceException(new Object[]{amount, findAccountBalance(accountId)});
         } else if (exception instanceof AccountBalanceException abe) {
