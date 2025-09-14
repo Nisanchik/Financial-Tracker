@@ -1,4 +1,4 @@
-package ru.mirea.newrav1k.userservice.contoller.rest;
+package ru.mirea.newrav1k.userservice.controller.rest;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;

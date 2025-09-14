@@ -13,7 +13,12 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.server.ResponseStatusException;
+import ru.mirea.newrav1k.userservice.exception.CustomerAlreadyExistsException;
+import ru.mirea.newrav1k.userservice.exception.CustomerNotFoundException;
+import ru.mirea.newrav1k.userservice.exception.JwtExpiredException;
+import ru.mirea.newrav1k.userservice.exception.PasswordMismatchException;
+import ru.mirea.newrav1k.userservice.exception.RefreshTokenNotFoundException;
+import ru.mirea.newrav1k.userservice.exception.UserServiceException;
 import ru.mirea.newrav1k.userservice.mapper.CustomerMapper;
 import ru.mirea.newrav1k.userservice.model.dto.CustomerResponse;
 import ru.mirea.newrav1k.userservice.model.dto.LoginRequest;
@@ -28,6 +33,8 @@ import ru.mirea.newrav1k.userservice.security.token.RefreshToken;
 
 import java.time.Instant;
 import java.util.UUID;
+
+import static ru.mirea.newrav1k.userservice.utils.MessageCode.REGISTRATION_FAILED;
 
 @Slf4j
 @Service
@@ -53,7 +60,7 @@ public class CustomerService implements UserDetailsService {
         log.debug("Find customer by id: {}", customerId);
         return this.customerRepository.findById(customerId)
                 .map(this.customerMapper::toCustomerResponse)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+                .orElseThrow(CustomerNotFoundException::new);
     }
 
     @Transactional
@@ -63,7 +70,7 @@ public class CustomerService implements UserDetailsService {
         validatePassword(request.password(), request.confirmPassword());
 
         if (this.customerRepository.existsByUsername(request.username())) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "Username already exists");
+            throw new CustomerAlreadyExistsException();
         }
 
         Customer customer = buildCustomerFromRegistrationRequest(request);
@@ -72,10 +79,10 @@ public class CustomerService implements UserDetailsService {
             this.customerRepository.save(customer);
         } catch (DataIntegrityViolationException exception) {
             log.error("User with email already exists (email={})", request.username(), exception);
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "Customer with email already exists");
+            throw new CustomerAlreadyExistsException();
         } catch (DataAccessException exception) {
-            log.error("DB error while saving customer: {}", request.username(), exception);
-            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Failed to register user");
+            log.error("Database error while saving customer: {}", request.username(), exception);
+            throw new UserServiceException(REGISTRATION_FAILED, HttpStatus.INTERNAL_SERVER_ERROR);
         }
 
         AccessToken accessToken = this.jwtAuthenticationService.generateAccessToken(customer);
@@ -89,9 +96,11 @@ public class CustomerService implements UserDetailsService {
     public JwtToken login(LoginRequest request) {
         log.debug("Login customer");
         Customer customer = this.customerRepository.findByUsername(request.username())
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Customer not found"));
+                .orElseThrow(CustomerNotFoundException::new);
 
         validatePassword(request.password(), customer.getPassword());
+
+        this.refreshTokenEntityRepository.deleteAllByCustomerId(customer.getId());
 
         AccessToken accessToken = this.jwtAuthenticationService.generateAccessToken(customer);
 
@@ -104,15 +113,17 @@ public class CustomerService implements UserDetailsService {
     public JwtToken refresh(String token) {
         log.debug("Refresh customer's token");
         RefreshTokenEntity refreshTokenEntity = this.refreshTokenEntityRepository.findByToken(token)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Refresh token not found"));
+                .orElseThrow(RefreshTokenNotFoundException::new);
 
         if (refreshTokenEntity.getExpiresAt().isBefore(Instant.now())) {
             this.refreshTokenEntityRepository.delete(refreshTokenEntity);
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Refresh token expired");
+            throw new JwtExpiredException();
         }
 
         Customer customer = this.customerRepository.findById(refreshTokenEntity.getCustomerId())
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Customer not found"));
+                .orElseThrow(CustomerNotFoundException::new);
+
+        this.refreshTokenEntityRepository.deleteAllByCustomerId(customer.getId());
 
         AccessToken newAccessToken = this.jwtAuthenticationService.generateAccessToken(customer);
 
@@ -123,8 +134,7 @@ public class CustomerService implements UserDetailsService {
 
     private void validatePassword(String password, String confirmPassword) {
         if (!password.equals(confirmPassword)) {
-            log.warn("Passwords do not match");
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "Passwords do not match");
+            throw new PasswordMismatchException();
         }
     }
 
