@@ -14,6 +14,7 @@ import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import ru.mirea.newrav1k.userservice.exception.RSAKeyLoadException;
 import ru.mirea.newrav1k.userservice.model.entity.Customer;
 import ru.mirea.newrav1k.userservice.model.entity.RefreshTokenEntity;
 import ru.mirea.newrav1k.userservice.model.enums.Authority;
@@ -43,10 +44,10 @@ public class JwtAuthenticationService {
     @Value("${user-service.jwt.refresh-token.expiry}")
     private Duration refreshTokenExpiration;
 
-    @Value("${user-service.jwt.private-key-path:private_pkcs8.pem}")
+    @Value("${user-service.jwt.private-key-path:keys/private_pkcs8.pem}")
     private String privateKeyPath;
 
-    @Value("${user-service.jwt.public-key-path:public.pem}")
+    @Value("${user-service.jwt.public-key-path:keys/public.pem}")
     private String publicKeyPath;
 
     private JwtParser jwtParser;
@@ -66,7 +67,7 @@ public class JwtAuthenticationService {
             log.info("RSA keys loaded successfully");
         } catch (Exception exception) {
             log.error("RSA keys could not be loaded", exception);
-            throw new RuntimeException("Failed to load RSA keys", exception);
+            throw new RSAKeyLoadException("Failed to load RSA keys", exception);
         }
     }
 
