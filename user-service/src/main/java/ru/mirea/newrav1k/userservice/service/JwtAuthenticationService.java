@@ -2,10 +2,12 @@ package ru.mirea.newrav1k.userservice.service;
 
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.ExpiredJwtException;
+import io.jsonwebtoken.JwtParser;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.MalformedJwtException;
 import io.jsonwebtoken.UnsupportedJwtException;
 import io.jsonwebtoken.security.Keys;
+import jakarta.annotation.PostConstruct;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -18,6 +20,7 @@ import ru.mirea.newrav1k.userservice.model.dto.AccessToken;
 import ru.mirea.newrav1k.userservice.model.dto.RefreshToken;
 
 import javax.crypto.SecretKey;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Date;
@@ -39,19 +42,29 @@ public class JwtAuthenticationService {
     @Value("${user-service.jwt.secret}")
     private String jwtSecret;
 
+    private JwtParser jwtParser;
+
+    @PostConstruct
+    public void init() {
+        this.jwtParser = Jwts.parser()
+                .verifyWith(getSigningKey())
+                .build();
+    }
+
     private SecretKey getSigningKey() {
-        return Keys.hmacShaKeyFor(this.jwtSecret.getBytes());
+        return Keys.hmacShaKeyFor(this.jwtSecret.getBytes(StandardCharsets.UTF_8));
     }
 
     public AccessToken generateAccessToken(UserDetails userDetails) {
         log.debug("Generating access token for user {}", userDetails.getUsername());
+        Instant now = Instant.now();
         String accessToken = Jwts.builder()
                 .subject(userDetails.getUsername())
                 .claim("authorities", userDetails.getAuthorities().stream()
                         .map(GrantedAuthority::getAuthority)
                         .toList())
-                .issuedAt(Date.from(Instant.now()))
-                .expiration(Date.from(Instant.now().plus(this.accessTokenExpiration)))
+                .issuedAt(Date.from(now))
+                .expiration(Date.from(now.plus(this.accessTokenExpiration)))
                 .signWith(getSigningKey())
                 .compact();
 
@@ -60,11 +73,12 @@ public class JwtAuthenticationService {
 
     public RefreshToken generateRefreshToken(UserDetails userDetails) {
         log.debug("Generating refresh token for user {}", userDetails.getUsername());
+        Instant now = Instant.now();
         String refreshToken = Jwts.builder()
                 .subject(userDetails.getUsername())
                 .claim("tokenType", "refresh")
-                .issuedAt(Date.from(Instant.now()))
-                .expiration(Date.from(Instant.now().plus(this.refreshTokenExpiration)))
+                .issuedAt(Date.from(now))
+                .expiration(Date.from(now.plus(this.refreshTokenExpiration)))
                 .signWith(getSigningKey())
                 .compact();
 
@@ -73,9 +87,7 @@ public class JwtAuthenticationService {
 
     public List<GrantedAuthority> getAuthoritiesFromToken(String token) {
         log.debug("Getting authorities for token {}", token);
-        Claims claims = Jwts.parser()
-                .verifyWith(getSigningKey())
-                .build()
+        Claims claims = this.jwtParser
                 .parseSignedClaims(token)
                 .getPayload();
 
@@ -89,9 +101,7 @@ public class JwtAuthenticationService {
 
     public String getSubjectFromToken(String token) {
         log.debug("Getting username for token {}", token);
-        Claims claims = Jwts.parser()
-                .verifyWith(getSigningKey())
-                .build()
+        Claims claims = this.jwtParser
                 .parseSignedClaims(token)
                 .getPayload();
 
@@ -99,9 +109,7 @@ public class JwtAuthenticationService {
     }
 
     public Date getExpirationDateFromToken(String token) {
-        Claims claims = Jwts.parser()
-                .verifyWith(getSigningKey())
-                .build()
+        Claims claims = this.jwtParser
                 .parseSignedClaims(token)
                 .getPayload();
 
@@ -110,9 +118,7 @@ public class JwtAuthenticationService {
 
     public boolean validateToken(String token) {
         try {
-            Jwts.parser()
-                    .verifyWith(getSigningKey())
-                    .build()
+            this.jwtParser
                     .parseSignedClaims(token);
             return true;
         } catch (SecurityException e) {
@@ -140,9 +146,7 @@ public class JwtAuthenticationService {
 
     public boolean isRefreshToken(String token) {
         try {
-            Claims claims = Jwts.parser()
-                    .verifyWith(getSigningKey())
-                    .build()
+            Claims claims = this.jwtParser
                     .parseSignedClaims(token)
                     .getPayload();
 
