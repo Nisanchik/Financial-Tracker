@@ -8,15 +8,17 @@ import io.jsonwebtoken.MalformedJwtException;
 import io.jsonwebtoken.UnsupportedJwtException;
 import io.jsonwebtoken.security.Keys;
 import jakarta.annotation.PostConstruct;
-import lombok.Setter;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import ru.mirea.newrav1k.userservice.model.entity.Customer;
+import ru.mirea.newrav1k.userservice.model.entity.RefreshTokenEntity;
 import ru.mirea.newrav1k.userservice.model.enums.Authority;
+import ru.mirea.newrav1k.userservice.repository.RefreshTokenEntityRepository;
 import ru.mirea.newrav1k.userservice.security.token.AccessToken;
 import ru.mirea.newrav1k.userservice.security.token.RefreshToken;
 
@@ -26,17 +28,18 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.Date;
 import java.util.List;
-import java.util.stream.Collectors;
+import java.util.UUID;
 
 @Slf4j
 @Service
+@RequiredArgsConstructor
 public class JwtAuthenticationService {
 
-    @Setter(onMethod_ = @Autowired)
+    private final RefreshTokenEntityRepository refreshTokenEntityRepository;
+
     @Value("${user-service.jwt.access-token.expiry}")
     private Duration accessTokenExpiration;
 
-    @Setter(onMethod_ = @Autowired)
     @Value("${user-service.jwt.refresh-token.expiry}")
     private Duration refreshTokenExpiration;
 
@@ -65,27 +68,32 @@ public class JwtAuthenticationService {
                 .claim("authorities", customer.getAuthorities().stream()
                         .map(Authority::name)
                         .map(SimpleGrantedAuthority::new)
+                        .map(SimpleGrantedAuthority::getAuthority)
                         .toList())
                 .issuedAt(Date.from(now))
                 .expiration(Date.from(now.plus(this.accessTokenExpiration)))
                 .signWith(getSigningKey())
                 .compact();
 
-        return new AccessToken(accessToken);
+        return new AccessToken(accessToken, now.plus(this.accessTokenExpiration));
     }
 
+    @Transactional
     public RefreshToken generateRefreshToken(Customer customer) {
         log.debug("Generating refresh token for user {}", customer.getId());
         Instant now = Instant.now();
-        String refreshToken = Jwts.builder()
-                .subject(customer.getId().toString())
-                .claim("tokenType", "refresh")
-                .issuedAt(Date.from(now))
-                .expiration(Date.from(now.plus(this.refreshTokenExpiration)))
-                .signWith(getSigningKey())
-                .compact();
 
-        return new RefreshToken(refreshToken);
+        String uuidToken = UUID.randomUUID().toString();
+
+        RefreshTokenEntity refreshTokenEntity = new RefreshTokenEntity();
+        refreshTokenEntity.setCustomerId(customer.getId());
+        refreshTokenEntity.setToken(uuidToken);
+        refreshTokenEntity.setCreatedAt(now);
+        refreshTokenEntity.setExpiresAt(now.plus(this.refreshTokenExpiration));
+
+        this.refreshTokenEntityRepository.save(refreshTokenEntity);
+
+        return new RefreshToken(uuidToken, refreshTokenEntity.getExpiresAt());
     }
 
     public List<GrantedAuthority> getAuthoritiesFromToken(String token) {
@@ -99,7 +107,8 @@ public class JwtAuthenticationService {
 
         return authorities.stream()
                 .map(SimpleGrantedAuthority::new)
-                .collect(Collectors.toList());
+                .map(GrantedAuthority.class::cast)
+                .toList();
     }
 
     public String getSubjectFromToken(String token) {
@@ -117,6 +126,16 @@ public class JwtAuthenticationService {
                 .getPayload();
 
         return claims.getExpiration();
+    }
+
+    @Transactional
+    public void invalidateRefreshToken(String token) {
+        this.refreshTokenEntityRepository.deleteByToken(token);
+    }
+
+    @Transactional
+    public void invalidateRefreshTokens(UUID customerId) {
+        this.refreshTokenEntityRepository.deleteAllByCustomerId(customerId);
     }
 
     public boolean validateToken(String token) {
