@@ -11,6 +11,7 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.springframework.security.core.userdetails.UserDetails;
 import ru.mirea.newrav1k.userservice.model.enums.Authority;
 
 import java.util.ArrayList;
@@ -23,14 +24,14 @@ import java.util.List;
 @Builder
 @Entity
 @Table(
-        name = "t_users",
-        schema = "user_management",
+        name = "t_customers",
+        schema = "customer_management",
         indexes = {
-                @Index(name = "idx_user_ids", columnList = "id"),
-                @Index(name = "idx_user_usernames", columnList = "username")
+                @Index(name = "idx_customer_ids", columnList = "id"),
+                @Index(name = "idx_customer_usernames", columnList = "username")
         }
 )
-public class User extends BaseEntity {
+public class Customer extends BaseEntity implements UserDetails {
 
     @Email
     @Column(name = "username", unique = true, nullable = false)
