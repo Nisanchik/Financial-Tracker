@@ -16,8 +16,8 @@ import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
-import ru.mirea.newrav1k.userservice.model.dto.AccessToken;
-import ru.mirea.newrav1k.userservice.model.dto.RefreshToken;
+import ru.mirea.newrav1k.userservice.security.token.AccessToken;
+import ru.mirea.newrav1k.userservice.security.token.RefreshToken;
 
 import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
