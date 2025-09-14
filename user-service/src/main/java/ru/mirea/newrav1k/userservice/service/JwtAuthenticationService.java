@@ -6,7 +6,6 @@ import io.jsonwebtoken.JwtParser;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.MalformedJwtException;
 import io.jsonwebtoken.UnsupportedJwtException;
-import io.jsonwebtoken.security.Keys;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -21,9 +20,10 @@ import ru.mirea.newrav1k.userservice.model.enums.Authority;
 import ru.mirea.newrav1k.userservice.repository.RefreshTokenEntityRepository;
 import ru.mirea.newrav1k.userservice.security.token.AccessToken;
 import ru.mirea.newrav1k.userservice.security.token.RefreshToken;
+import ru.mirea.newrav1k.userservice.utils.KeyUtils;
 
-import javax.crypto.SecretKey;
-import java.nio.charset.StandardCharsets;
+import java.security.PrivateKey;
+import java.security.PublicKey;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Date;
@@ -43,20 +43,31 @@ public class JwtAuthenticationService {
     @Value("${user-service.jwt.refresh-token.expiry}")
     private Duration refreshTokenExpiration;
 
-    @Value("${user-service.jwt.secret}")
-    private String jwtSecret;
+    @Value("${user-service.jwt.private-key-path:private_pkcs8.pem}")
+    private String privateKeyPath;
+
+    @Value("${user-service.jwt.public-key-path:public.pem}")
+    private String publicKeyPath;
 
     private JwtParser jwtParser;
 
+    private PrivateKey privateKey;
+
     @PostConstruct
     public void init() {
-        this.jwtParser = Jwts.parser()
-                .verifyWith(getSigningKey())
-                .build();
-    }
+        try {
+            this.privateKey = KeyUtils.loadPrivateKey(this.privateKeyPath);
+            PublicKey publicKey = KeyUtils.loadPublicKey(this.publicKeyPath);
 
-    private SecretKey getSigningKey() {
-        return Keys.hmacShaKeyFor(this.jwtSecret.getBytes(StandardCharsets.UTF_8));
+            this.jwtParser = Jwts.parser()
+                    .verifyWith(publicKey)
+                    .build();
+
+            log.info("RSA keys loaded successfully");
+        } catch (Exception exception) {
+            log.error("RSA keys could not be loaded", exception);
+            throw new RuntimeException("Failed to load RSA keys", exception);
+        }
     }
 
     public AccessToken generateAccessToken(Customer customer) {
@@ -72,7 +83,7 @@ public class JwtAuthenticationService {
                         .toList())
                 .issuedAt(Date.from(now))
                 .expiration(Date.from(now.plus(this.accessTokenExpiration)))
-                .signWith(getSigningKey())
+                .signWith(this.privateKey)
                 .compact();
 
         return new AccessToken(accessToken, now.plus(this.accessTokenExpiration));
