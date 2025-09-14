@@ -14,8 +14,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
-import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
+import ru.mirea.newrav1k.userservice.model.entity.Customer;
+import ru.mirea.newrav1k.userservice.model.enums.Authority;
 import ru.mirea.newrav1k.userservice.security.token.AccessToken;
 import ru.mirea.newrav1k.userservice.security.token.RefreshToken;
 
@@ -55,13 +56,15 @@ public class JwtAuthenticationService {
         return Keys.hmacShaKeyFor(this.jwtSecret.getBytes(StandardCharsets.UTF_8));
     }
 
-    public AccessToken generateAccessToken(UserDetails userDetails) {
-        log.debug("Generating access token for user {}", userDetails.getUsername());
+    public AccessToken generateAccessToken(Customer customer) {
+        log.debug("Generating access token for user {}", customer.getId());
         Instant now = Instant.now();
         String accessToken = Jwts.builder()
-                .subject(userDetails.getUsername())
-                .claim("authorities", userDetails.getAuthorities().stream()
-                        .map(GrantedAuthority::getAuthority)
+                .subject(customer.getId().toString())
+                .claim("username", customer.getUsername())
+                .claim("authorities", customer.getAuthorities().stream()
+                        .map(Authority::name)
+                        .map(SimpleGrantedAuthority::new)
                         .toList())
                 .issuedAt(Date.from(now))
                 .expiration(Date.from(now.plus(this.accessTokenExpiration)))
@@ -71,11 +74,11 @@ public class JwtAuthenticationService {
         return new AccessToken(accessToken);
     }
 
-    public RefreshToken generateRefreshToken(UserDetails userDetails) {
-        log.debug("Generating refresh token for user {}", userDetails.getUsername());
+    public RefreshToken generateRefreshToken(Customer customer) {
+        log.debug("Generating refresh token for user {}", customer.getId());
         Instant now = Instant.now();
         String refreshToken = Jwts.builder()
-                .subject(userDetails.getUsername())
+                .subject(customer.getId().toString())
                 .claim("tokenType", "refresh")
                 .issuedAt(Date.from(now))
                 .expiration(Date.from(now.plus(this.refreshTokenExpiration)))
