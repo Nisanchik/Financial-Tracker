@@ -43,4 +43,50 @@ public class CustomerController {
         return ResponseEntity.ok(customer);
     }
 
+    @Operation(summary = "Изменение персональных данных",
+            description = "Изменяет персональные данные клиента по его идентификатору")
+    @ApiResponses(value = {@ApiResponse(responseCode = "404", description = "Клиент не найден"),
+            @ApiResponse(responseCode = "400", description = "Некорректные данные")})
+    @PutMapping("/me")
+    public ResponseEntity<CustomerResponse> changePersonalInfo(@Valid @RequestBody ChangePersonalInfoRequest request,
+                                                               @AuthenticationPrincipal CustomerPrincipal principal) {
+        log.info("Request to change personal information");
+        CustomerResponse customer = this.customerService.changePersonalInfo(request, principal.getId());
+        return ResponseEntity.ok(customer);
+    }
+
+    @Operation(summary = "Изменение пароля",
+            description = "Изменяет пароль клиента по его идентификатору")
+    @ApiResponses(value = {@ApiResponse(responseCode = "404", description = "Клиент не найден"),
+            @ApiResponse(responseCode = "400", description = "Некорректные данные")})
+    @PutMapping("/me/change-password")
+    public ResponseEntity<JwtToken> changePassword(@Valid @RequestBody ChangePasswordRequest request,
+                                                   @AuthenticationPrincipal CustomerPrincipal principal) {
+        log.info("Request to change password");
+        JwtToken jwtToken = this.customerService.changePassword(request, principal.getId());
+        return ResponseEntity.ok(jwtToken);
+    }
+
+    @Operation(summary = "Изменение почты клиента",
+            description = "Изменяет почты клиента по его идентификатору")
+    @ApiResponses(value = {@ApiResponse(responseCode = "404", description = "Клиент не найден"),
+            @ApiResponse(responseCode = "400", description = "Некорректные данные")})
+    @PutMapping("/me/change-username")
+    public ResponseEntity<JwtToken> changeUsername(@Valid @RequestBody ChangeUsernameRequest request,
+                                                   @AuthenticationPrincipal CustomerPrincipal principal) {
+        log.info("Request to change username");
+        JwtToken jwtToken = this.customerService.changeUsername(request, principal.getId());
+        return ResponseEntity.ok(jwtToken);
+    }
+
+    @Operation(summary = "Удаление клиента",
+            description = "Удаляет клиента по его идентификатору")
+    @ApiResponse(responseCode = "404", description = "Клиент не найден")
+    @DeleteMapping("/me")
+    public ResponseEntity<Void> delete(@AuthenticationPrincipal CustomerPrincipal principal) {
+        log.info("Request to delete customer");
+        this.customerService.deleteById(principal.getId());
+        return ResponseEntity.noContent().build();
+    }
+
 }

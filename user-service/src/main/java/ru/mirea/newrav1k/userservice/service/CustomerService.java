@@ -20,6 +20,9 @@ import ru.mirea.newrav1k.userservice.exception.PasswordMismatchException;
 import ru.mirea.newrav1k.userservice.exception.RefreshTokenNotFoundException;
 import ru.mirea.newrav1k.userservice.exception.UserServiceException;
 import ru.mirea.newrav1k.userservice.mapper.CustomerMapper;
+import ru.mirea.newrav1k.userservice.model.dto.ChangePasswordRequest;
+import ru.mirea.newrav1k.userservice.model.dto.ChangePersonalInfoRequest;
+import ru.mirea.newrav1k.userservice.model.dto.ChangeUsernameRequest;
 import ru.mirea.newrav1k.userservice.model.dto.CustomerResponse;
 import ru.mirea.newrav1k.userservice.model.dto.LoginRequest;
 import ru.mirea.newrav1k.userservice.model.dto.RegistrationRequest;
@@ -85,11 +88,7 @@ public class CustomerService implements UserDetailsService {
             throw new UserServiceException(REGISTRATION_FAILED, HttpStatus.INTERNAL_SERVER_ERROR);
         }
 
-        AccessToken accessToken = this.jwtAuthenticationService.generateAccessToken(customer);
-
-        RefreshToken refreshToken = this.jwtAuthenticationService.generateRefreshToken(customer);
-
-        return new JwtToken(accessToken, refreshToken);
+        return generateJwtToken(customer);
     }
 
     @Transactional
@@ -102,11 +101,7 @@ public class CustomerService implements UserDetailsService {
 
         this.refreshTokenEntityRepository.deleteAllByCustomerId(customer.getId());
 
-        AccessToken accessToken = this.jwtAuthenticationService.generateAccessToken(customer);
-
-        RefreshToken refreshToken = this.jwtAuthenticationService.generateRefreshToken(customer);
-
-        return new JwtToken(accessToken, refreshToken);
+        return generateJwtToken(customer);
     }
 
     @Transactional
@@ -125,11 +120,64 @@ public class CustomerService implements UserDetailsService {
 
         this.refreshTokenEntityRepository.deleteAllByCustomerId(customer.getId());
 
-        AccessToken newAccessToken = this.jwtAuthenticationService.generateAccessToken(customer);
+        return generateJwtToken(customer);
+    }
 
-        RefreshToken newRefreshToken = this.jwtAuthenticationService.generateRefreshToken(customer);
+    @Transactional
+    public void logout(String token, boolean isLogoutAll) {
+        log.debug("Logout customer's token");
+        RefreshTokenEntity refreshTokenEntity = this.refreshTokenEntityRepository.findByToken(token)
+                .orElseThrow(RefreshTokenNotFoundException::new);
+        if (isLogoutAll) {
+            this.refreshTokenEntityRepository.deleteAllByCustomerId(refreshTokenEntity.getCustomerId());
+        } else {
+            this.refreshTokenEntityRepository.delete(refreshTokenEntity);
+        }
+    }
 
-        return new JwtToken(newAccessToken, newRefreshToken);
+    @Transactional
+    public CustomerResponse changePersonalInfo(ChangePersonalInfoRequest request, UUID customerId) {
+        log.debug("Change personal information");
+        Customer customer = this.customerRepository.findById(customerId)
+                .orElseThrow(CustomerNotFoundException::new);
+        customer.setFirstname(request.firstname());
+        customer.setLastname(request.lastname());
+        return this.customerMapper.toCustomerResponse(customer);
+    }
+
+    @Transactional
+    public JwtToken changePassword(ChangePasswordRequest request, UUID customerId) {
+        log.debug("Change password customer");
+        validatePassword(request.password(), request.confirmPassword());
+
+        Customer customer = this.customerRepository.findById(customerId)
+                .orElseThrow(CustomerNotFoundException::new);
+        customer.setPassword(request.password());
+
+        this.refreshTokenEntityRepository.deleteAllByCustomerId(customer.getId());
+
+        return generateJwtToken(customer);
+    }
+
+    @Transactional
+    public JwtToken changeUsername(ChangeUsernameRequest request, UUID customerId) {
+        log.debug("Change username customer");
+        Customer customer = this.customerRepository.findById(customerId)
+                .orElseThrow(CustomerNotFoundException::new);
+        validatePassword(customer.getPassword(),  request.confirmPassword());
+
+        customer.setUsername(request.username());
+
+        this.refreshTokenEntityRepository.deleteAllByCustomerId(customer.getId());
+
+        return generateJwtToken(customer);
+    }
+
+    @Transactional
+    public void deleteById(UUID customerId) {
+        log.debug("Delete customer");
+        this.refreshTokenEntityRepository.deleteAllByCustomerId(customerId);
+        this.customerRepository.deleteById(customerId);
     }
 
     private void validatePassword(String password, String confirmPassword) {
@@ -145,6 +193,12 @@ public class CustomerService implements UserDetailsService {
         customer.setLastname(request.lastname());
         customer.setPassword(request.password());
         return customer;
+    }
+
+    private JwtToken generateJwtToken(Customer customer) {
+        AccessToken newAccessToken = this.jwtAuthenticationService.generateAccessToken(customer);
+        RefreshToken newRefreshToken = this.jwtAuthenticationService.generateRefreshToken(customer);
+        return new JwtToken(newAccessToken, newRefreshToken);
     }
 
     @Override

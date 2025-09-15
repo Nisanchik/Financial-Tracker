@@ -60,4 +60,15 @@ public class AuthenticationController {
         return ResponseEntity.ok(refreshedToken);
     }
 
+    @Operation(summary = "Удаление refresh-токена",
+            description = "Удаляет refresh-токен клиента")
+    @ApiResponse(responseCode = "409", description = "Невалидный токен")
+    @PostMapping("/logout")
+    public ResponseEntity<Void> logout(@RequestParam("token") String token,
+                                       @RequestParam(value = "logoutAll", required = false, defaultValue = "false") boolean isLogoutAll) {
+        log.info("Request to logout token: {}", token);
+        this.customerService.logout(token, isLogoutAll);
+        return ResponseEntity.noContent().build();
+    }
+
 }
