@@ -19,6 +19,7 @@ import ru.mirea.newrav1k.userservice.exception.CustomerAlreadyExistsException;
 import ru.mirea.newrav1k.userservice.exception.CustomerNotFoundException;
 import ru.mirea.newrav1k.userservice.exception.JwtExpiredException;
 import ru.mirea.newrav1k.userservice.exception.PasswordMismatchException;
+import ru.mirea.newrav1k.userservice.exception.RefreshTokenNotFoundException;
 import ru.mirea.newrav1k.userservice.exception.UserServiceException;
 import ru.mirea.newrav1k.userservice.mapper.CustomerMapper;
 import ru.mirea.newrav1k.userservice.model.dto.ChangePasswordRequest;
@@ -28,11 +29,14 @@ import ru.mirea.newrav1k.userservice.model.dto.CustomerResponse;
 import ru.mirea.newrav1k.userservice.model.dto.LoginRequest;
 import ru.mirea.newrav1k.userservice.model.dto.RegistrationRequest;
 import ru.mirea.newrav1k.userservice.model.entity.Customer;
+import ru.mirea.newrav1k.userservice.model.entity.RefreshTokenEntity;
 import ru.mirea.newrav1k.userservice.repository.CustomerRepository;
+import ru.mirea.newrav1k.userservice.repository.RefreshTokenEntityRepository;
 import ru.mirea.newrav1k.userservice.security.token.AccessToken;
 import ru.mirea.newrav1k.userservice.security.token.JwtToken;
 import ru.mirea.newrav1k.userservice.security.token.RefreshToken;
 
+import java.time.Instant;
 import java.util.UUID;
 
 import static ru.mirea.newrav1k.userservice.utils.MessageCode.REGISTRATION_FAILED;
@@ -42,6 +46,8 @@ import static ru.mirea.newrav1k.userservice.utils.MessageCode.REGISTRATION_FAILE
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class CustomerService implements UserDetailsService {
+
+    private final RefreshTokenEntityRepository refreshTokenEntityRepository;
 
     private final CustomerRepository customerRepository;
 
@@ -109,14 +115,16 @@ public class CustomerService implements UserDetailsService {
     @Transactional
     public JwtToken refresh(String token) {
         log.debug("Refresh customer's token");
-        String subject = this.jwtAuthenticationService.getSubjectFromToken(token);
 
-        if (this.jwtAuthenticationService.isTokenExpired(token)) {
-            this.jwtAuthenticationService.invalidateRefreshToken(token);
+        RefreshTokenEntity refreshToken = this.refreshTokenEntityRepository.findByToken(token)
+                .orElseThrow(RefreshTokenNotFoundException::new);
+
+        if (refreshToken.getExpiresAt().isBefore(Instant.now())) {
+            this.refreshTokenEntityRepository.delete(refreshToken);
             throw new JwtExpiredException();
         }
 
-        Customer customer = this.customerRepository.findById(UUID.fromString(subject))
+        Customer customer = this.customerRepository.findById(refreshToken.getCustomerId())
                 .orElseThrow(CustomerNotFoundException::new);
 
         this.jwtAuthenticationService.invalidateRefreshTokens(customer.getId());
@@ -128,9 +136,10 @@ public class CustomerService implements UserDetailsService {
     @Transactional
     public void logout(String token, boolean isLogoutAll) {
         log.debug("Logout customer's token");
-        String subject = this.jwtAuthenticationService.getSubjectFromToken(token);
+        RefreshTokenEntity refreshToken = this.refreshTokenEntityRepository.findByToken(token)
+                .orElseThrow(RefreshTokenNotFoundException::new);
         if (isLogoutAll) {
-            this.jwtAuthenticationService.invalidateRefreshTokens(UUID.fromString(subject));
+            this.jwtAuthenticationService.invalidateRefreshTokens(refreshToken.getCustomerId());
         } else {
             this.jwtAuthenticationService.invalidateRefreshToken(token);
         }
