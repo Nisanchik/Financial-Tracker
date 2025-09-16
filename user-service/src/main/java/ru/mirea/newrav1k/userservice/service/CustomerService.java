@@ -7,17 +7,18 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import ru.mirea.newrav1k.userservice.exception.CustomerAlreadyExistsException;
 import ru.mirea.newrav1k.userservice.exception.CustomerNotFoundException;
 import ru.mirea.newrav1k.userservice.exception.JwtExpiredException;
 import ru.mirea.newrav1k.userservice.exception.PasswordMismatchException;
-import ru.mirea.newrav1k.userservice.exception.RefreshTokenNotFoundException;
 import ru.mirea.newrav1k.userservice.exception.UserServiceException;
 import ru.mirea.newrav1k.userservice.mapper.CustomerMapper;
 import ru.mirea.newrav1k.userservice.model.dto.ChangePasswordRequest;
@@ -27,14 +28,11 @@ import ru.mirea.newrav1k.userservice.model.dto.CustomerResponse;
 import ru.mirea.newrav1k.userservice.model.dto.LoginRequest;
 import ru.mirea.newrav1k.userservice.model.dto.RegistrationRequest;
 import ru.mirea.newrav1k.userservice.model.entity.Customer;
-import ru.mirea.newrav1k.userservice.model.entity.RefreshTokenEntity;
 import ru.mirea.newrav1k.userservice.repository.CustomerRepository;
-import ru.mirea.newrav1k.userservice.repository.RefreshTokenEntityRepository;
 import ru.mirea.newrav1k.userservice.security.token.AccessToken;
 import ru.mirea.newrav1k.userservice.security.token.JwtToken;
 import ru.mirea.newrav1k.userservice.security.token.RefreshToken;
 
-import java.time.Instant;
 import java.util.UUID;
 
 import static ru.mirea.newrav1k.userservice.utils.MessageCode.REGISTRATION_FAILED;
@@ -45,20 +43,22 @@ import static ru.mirea.newrav1k.userservice.utils.MessageCode.REGISTRATION_FAILE
 @Transactional(readOnly = true)
 public class CustomerService implements UserDetailsService {
 
-    private final RefreshTokenEntityRepository refreshTokenEntityRepository;
-
     private final CustomerRepository customerRepository;
 
     private final JwtAuthenticationService jwtAuthenticationService;
 
     private final CustomerMapper customerMapper;
 
+    public final PasswordEncoder passwordEncoder;
+
+    @PreAuthorize("hasRole('ROLE_ADMIN')")
     public Page<CustomerResponse> findAll(Pageable pageable) {
         log.debug("Finding all customers");
         return this.customerRepository.findAll(pageable)
                 .map(this.customerMapper::toCustomerResponse);
     }
 
+    @PreAuthorize("@securityUtils.isSelfOrAdmin(#customerId, authentication)")
     public CustomerResponse findById(UUID customerId) {
         log.debug("Find customer by id: {}", customerId);
         return this.customerRepository.findById(customerId)
@@ -66,11 +66,11 @@ public class CustomerService implements UserDetailsService {
                 .orElseThrow(CustomerNotFoundException::new);
     }
 
+    @PreAuthorize("isAnonymous()")
     @Transactional
     public JwtToken register(RegistrationRequest request) {
         log.debug("Register new customer");
-
-        validatePassword(request.password(), request.confirmPassword());
+        validatePasswordMatch(request.password(), request.confirmPassword());
 
         if (this.customerRepository.existsByUsername(request.username())) {
             throw new CustomerAlreadyExistsException();
@@ -91,6 +91,7 @@ public class CustomerService implements UserDetailsService {
         return generateJwtToken(customer);
     }
 
+    @PreAuthorize("isAnonymous()")
     @Transactional
     public JwtToken login(LoginRequest request) {
         log.debug("Login customer");
@@ -99,42 +100,43 @@ public class CustomerService implements UserDetailsService {
 
         validatePassword(request.password(), customer.getPassword());
 
-        this.refreshTokenEntityRepository.deleteAllByCustomerId(customer.getId());
+        this.jwtAuthenticationService.invalidateRefreshTokens(customer.getId());
 
         return generateJwtToken(customer);
     }
 
+    @PreAuthorize("isAnonymous()")
     @Transactional
     public JwtToken refresh(String token) {
         log.debug("Refresh customer's token");
-        RefreshTokenEntity refreshTokenEntity = this.refreshTokenEntityRepository.findByToken(token)
-                .orElseThrow(RefreshTokenNotFoundException::new);
+        String subject = this.jwtAuthenticationService.getSubjectFromToken(token);
 
-        if (refreshTokenEntity.getExpiresAt().isBefore(Instant.now())) {
-            this.refreshTokenEntityRepository.delete(refreshTokenEntity);
+        if (this.jwtAuthenticationService.isTokenExpired(token)) {
+            this.jwtAuthenticationService.invalidateRefreshToken(token);
             throw new JwtExpiredException();
         }
 
-        Customer customer = this.customerRepository.findById(refreshTokenEntity.getCustomerId())
+        Customer customer = this.customerRepository.findById(UUID.fromString(subject))
                 .orElseThrow(CustomerNotFoundException::new);
 
-        this.refreshTokenEntityRepository.deleteAllByCustomerId(customer.getId());
+        this.jwtAuthenticationService.invalidateRefreshTokens(customer.getId());
 
         return generateJwtToken(customer);
     }
 
+    @PreAuthorize("isAuthenticated()")
     @Transactional
     public void logout(String token, boolean isLogoutAll) {
         log.debug("Logout customer's token");
-        RefreshTokenEntity refreshTokenEntity = this.refreshTokenEntityRepository.findByToken(token)
-                .orElseThrow(RefreshTokenNotFoundException::new);
+        String subject = this.jwtAuthenticationService.getSubjectFromToken(token);
         if (isLogoutAll) {
-            this.refreshTokenEntityRepository.deleteAllByCustomerId(refreshTokenEntity.getCustomerId());
+            this.jwtAuthenticationService.invalidateRefreshTokens(UUID.fromString(subject));
         } else {
-            this.refreshTokenEntityRepository.delete(refreshTokenEntity);
+            this.jwtAuthenticationService.invalidateRefreshToken(token);
         }
     }
 
+    @PreAuthorize("@securityUtils.isSelfOrAdmin(#customerId, authentication)")
     @Transactional
     public CustomerResponse changePersonalInfo(ChangePersonalInfoRequest request, UUID customerId) {
         log.debug("Change personal information");
@@ -145,43 +147,55 @@ public class CustomerService implements UserDetailsService {
         return this.customerMapper.toCustomerResponse(customer);
     }
 
+    @PreAuthorize("@securityUtils.isSelfOrAdmin(#customerId, authentication)")
     @Transactional
     public JwtToken changePassword(ChangePasswordRequest request, UUID customerId) {
         log.debug("Change password customer");
-        validatePassword(request.password(), request.confirmPassword());
+        validatePasswordMatch(request.password(), request.confirmPassword());
 
         Customer customer = this.customerRepository.findById(customerId)
                 .orElseThrow(CustomerNotFoundException::new);
-        customer.setPassword(request.password());
+        customer.setPassword(this.passwordEncoder.encode(request.password()));
 
-        this.refreshTokenEntityRepository.deleteAllByCustomerId(customer.getId());
+        this.jwtAuthenticationService.invalidateRefreshTokens(customer.getId());
 
         return generateJwtToken(customer);
     }
 
+    @PreAuthorize("@securityUtils.isSelfOrAdmin(#customerId, authentication)")
     @Transactional
     public JwtToken changeUsername(ChangeUsernameRequest request, UUID customerId) {
         log.debug("Change username customer");
         Customer customer = this.customerRepository.findById(customerId)
                 .orElseThrow(CustomerNotFoundException::new);
-        validatePassword(customer.getPassword(),  request.confirmPassword());
+        validatePassword(request.confirmPassword(), customer.getPassword());
 
+        if (this.customerRepository.existsByUsername(request.username())) {
+            throw new CustomerAlreadyExistsException();
+        }
         customer.setUsername(request.username());
 
-        this.refreshTokenEntityRepository.deleteAllByCustomerId(customer.getId());
+        this.jwtAuthenticationService.invalidateRefreshTokens(customer.getId());
 
         return generateJwtToken(customer);
     }
 
+    @PreAuthorize("@securityUtils.isSelfOrAdmin(#customerId, authentication)")
     @Transactional
     public void deleteById(UUID customerId) {
         log.debug("Delete customer");
-        this.refreshTokenEntityRepository.deleteAllByCustomerId(customerId);
+        this.jwtAuthenticationService.invalidateRefreshTokens(customerId);
         this.customerRepository.deleteById(customerId);
     }
 
-    private void validatePassword(String password, String confirmPassword) {
+    private void validatePasswordMatch(String password, String confirmPassword) {
         if (!password.equals(confirmPassword)) {
+            throw new PasswordMismatchException();
+        }
+    }
+
+    private void validatePassword(String rawPassword, String encodedPassword) {
+        if (!this.passwordEncoder.matches(rawPassword, encodedPassword)) {
             throw new PasswordMismatchException();
         }
     }
@@ -191,7 +205,7 @@ public class CustomerService implements UserDetailsService {
         customer.setUsername(request.username());
         customer.setFirstname(request.firstname());
         customer.setLastname(request.lastname());
-        customer.setPassword(request.password());
+        customer.setPassword(this.passwordEncoder.encode(request.password()));
         return customer;
     }
 
@@ -206,7 +220,8 @@ public class CustomerService implements UserDetailsService {
         return this.customerRepository.findByUsername(username)
                 .map(user -> User.builder()
                         .username(username)
-                        .password("{noop}" + user.getPassword())
+                        .password(this.passwordEncoder.encode(user.getPassword()))
+                        .roles("USER")
                         .build())
                 .orElseThrow(() -> new UsernameNotFoundException("Customer with " + username + " not found"));
     }

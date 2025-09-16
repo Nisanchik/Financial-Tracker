@@ -8,6 +8,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -32,6 +33,7 @@ public class AuthenticationController {
             description = "Регистрирует клиента и выдаёт ему jwt токен")
     @ApiResponses(value = {@ApiResponse(responseCode = "400", description = "Некорректные данные"),
             @ApiResponse(responseCode = "409", description = "Невозможно зарегистрировать клиента")})
+    @PreAuthorize("isAnonymous()")
     @PostMapping("/register")
     public ResponseEntity<JwtToken> register(@Valid @RequestBody RegistrationRequest request) {
         log.info("Request to register: {}", request);
@@ -40,8 +42,9 @@ public class AuthenticationController {
     }
 
     @Operation(summary = "Авторизация клиента",
-            description = "Авторизирует клиента в системе")
+            description = "Проводит авторизацию клиента в системе")
     @ApiResponse(responseCode = "400", description = "Некорректные данные")
+    @PreAuthorize("isAnonymous()")
     @PostMapping("/login")
     public ResponseEntity<JwtToken> login(@Valid @RequestBody LoginRequest request) {
         log.info("Request to login: {}", request);
@@ -53,6 +56,7 @@ public class AuthenticationController {
             description = "Обновляет jwt токен и выдаёт новый")
     @ApiResponses(value = {@ApiResponse(responseCode = "409", description = "Невалидный токен"),
             @ApiResponse(responseCode = "404", description = "Клиент не найден")})
+    @PreAuthorize("isAnonymous()")
     @PostMapping("/refresh")
     public ResponseEntity<JwtToken> refresh(@RequestParam("token") String token) {
         log.info("Request to refresh token: {}", token);
@@ -63,6 +67,7 @@ public class AuthenticationController {
     @Operation(summary = "Удаление refresh-токена",
             description = "Удаляет refresh-токен клиента")
     @ApiResponse(responseCode = "409", description = "Невалидный токен")
+    @PreAuthorize("isAuthenticated()")
     @PostMapping("/logout")
     public ResponseEntity<Void> logout(@RequestParam("token") String token,
                                        @RequestParam(value = "logoutAll", required = false, defaultValue = "false") boolean isLogoutAll) {
