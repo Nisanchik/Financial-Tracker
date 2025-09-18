@@ -9,6 +9,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -18,6 +19,12 @@ import ru.mirea.newrav1k.userservice.model.dto.LoginRequest;
 import ru.mirea.newrav1k.userservice.model.dto.RegistrationRequest;
 import ru.mirea.newrav1k.userservice.security.token.JwtToken;
 import ru.mirea.newrav1k.userservice.service.CustomerService;
+import ru.mirea.newrav1k.userservice.service.JwtAuthenticationService;
+
+import java.security.interfaces.RSAPublicKey;
+import java.util.Base64;
+import java.util.List;
+import java.util.Map;
 
 @Tag(name = "Authentication Controller",
         description = "Контроллер для управления аутентификацией в приложении")
@@ -26,6 +33,8 @@ import ru.mirea.newrav1k.userservice.service.CustomerService;
 @RequiredArgsConstructor
 @RequestMapping("/api/auth")
 public class AuthenticationController {
+
+    private final JwtAuthenticationService jwtAuthenticationService;
 
     private final CustomerService customerService;
 
@@ -74,6 +83,26 @@ public class AuthenticationController {
         log.info("Request to logout token: {}", token);
         this.customerService.logout(token, isLogoutAll);
         return ResponseEntity.noContent().build();
+    }
+
+    @PreAuthorize("permitAll()")
+    @GetMapping("/.well-known/jwks.json")
+    public ResponseEntity<Map<String, Object>> getPublicJwts() {
+        log.info("Request to retrieve public jwks");
+        RSAPublicKey rsaPublicKey = (RSAPublicKey) this.jwtAuthenticationService.getPublicKey();
+
+        Map<String, Object> jwk = Map.of(
+                "kty", "RSA",
+                "kid", "rsa-key-1",
+                "alg", "RS256",
+                "use", "sig",
+                "n", Base64.getUrlEncoder().withoutPadding()
+                        .encodeToString(rsaPublicKey.getModulus().toByteArray()),
+                "e", Base64.getUrlEncoder().withoutPadding()
+                        .encodeToString(rsaPublicKey.getPublicExponent().toByteArray())
+        );
+
+        return ResponseEntity.ok(Map.of("keys", List.of(jwk)));
     }
 
 }

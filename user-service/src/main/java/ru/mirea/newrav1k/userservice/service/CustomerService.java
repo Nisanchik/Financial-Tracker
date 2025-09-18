@@ -55,7 +55,7 @@ public class CustomerService implements UserDetailsService {
 
     private final CustomerMapper customerMapper;
 
-    public final PasswordEncoder passwordEncoder;
+    private final PasswordEncoder passwordEncoder;
 
     @PreAuthorize("hasRole('ROLE_ADMIN')")
     public Page<CustomerResponse> findAll(Pageable pageable) {

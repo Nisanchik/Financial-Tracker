@@ -7,6 +7,7 @@ import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.MalformedJwtException;
 import io.jsonwebtoken.UnsupportedJwtException;
 import jakarta.annotation.PostConstruct;
+import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -54,14 +55,17 @@ public class JwtAuthenticationService {
 
     private PrivateKey privateKey;
 
+    @Getter
+    private PublicKey publicKey;
+
     @PostConstruct
     public void init() {
         try {
             this.privateKey = KeyUtils.loadPrivateKey(this.privateKeyPath);
-            PublicKey publicKey = KeyUtils.loadPublicKey(this.publicKeyPath);
+            this.publicKey = KeyUtils.loadPublicKey(this.publicKeyPath);
 
             this.jwtParser = Jwts.parser()
-                    .verifyWith(publicKey)
+                    .verifyWith(this.publicKey)
                     .build();
 
             log.info("RSA keys loaded successfully");
