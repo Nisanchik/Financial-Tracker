@@ -1,3 +1,4 @@
-rootProject.name = 'Financial-tracker'
+rootProject.name = 'Financial-Tracker'
 
-include 'user-service', 'transaction-service', 'notification-service', 'account-service', 'category-service'
+include 'core', 'notification-service'
+include 'user-service', 'transaction-service', 'account-service', 'category-service'
