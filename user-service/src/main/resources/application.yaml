@@ -20,9 +20,9 @@ spring:
 user-service:
   jwt:
     access-token:
-      expiry: 15m
+      expiry: 30m
     refresh-token:
-      expiry: 5d
+      expiry: 15d
     private-key-path: keys/private_pkcs8.pem
     public-key-path: keys/public.pem
 

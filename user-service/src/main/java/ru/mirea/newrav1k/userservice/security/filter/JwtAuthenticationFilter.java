@@ -39,15 +39,18 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         String authenticationHeader = request.getHeader(AUTHORIZATION);
         if (authenticationHeader != null && authenticationHeader.startsWith(BEARER)) {
             String token = authenticationHeader.substring(7);
-            if (this.jwtAuthenticationService.validateToken(token) &&
-                    !this.jwtAuthenticationService.isTokenExpired(token)) {
-                String subject = this.jwtAuthenticationService.getSubjectFromToken(token);
-                List<GrantedAuthority> authorities = this.jwtAuthenticationService.getAuthoritiesFromToken(token);
-                CustomerPrincipal principal = new CustomerPrincipal(UUID.fromString(subject), authorities);
-                UsernamePasswordAuthenticationToken usernamePasswordAuthenticationToken =
-                        new UsernamePasswordAuthenticationToken(principal, null, authorities);
-                usernamePasswordAuthenticationToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-                SecurityContextHolder.getContext().setAuthentication(usernamePasswordAuthenticationToken);
+            if (this.jwtAuthenticationService.validateToken(token)) {
+                try {
+                    String subject = this.jwtAuthenticationService.getSubjectFromToken(token);
+                    List<GrantedAuthority> authorities = this.jwtAuthenticationService.getAuthoritiesFromToken(token);
+                    CustomerPrincipal principal = new CustomerPrincipal(UUID.fromString(subject), authorities);
+                    UsernamePasswordAuthenticationToken usernamePasswordAuthenticationToken =
+                            new UsernamePasswordAuthenticationToken(principal, null, authorities);
+                    usernamePasswordAuthenticationToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                    SecurityContextHolder.getContext().setAuthentication(usernamePasswordAuthenticationToken);
+                } catch (Exception exception) {
+                    log.error("Failed to validate token", exception);
+                }
             }
         }
         filterChain.doFilter(request, response);

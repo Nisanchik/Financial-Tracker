@@ -66,6 +66,7 @@ public class JwtAuthenticationService {
 
             this.jwtParser = Jwts.parser()
                     .verifyWith(this.publicKey)
+                    .clockSkewSeconds(30L)
                     .build();
 
             log.info("RSA keys loaded successfully");
@@ -129,19 +130,14 @@ public class JwtAuthenticationService {
 
     public String getSubjectFromToken(String token) {
         log.debug("Getting username for token {}", token);
-        Claims claims = this.jwtParser
-                .parseSignedClaims(token)
-                .getPayload();
-
-        return claims.getSubject();
-    }
-
-    public Date getExpirationDateFromToken(String token) {
-        Claims claims = this.jwtParser
-                .parseSignedClaims(token)
-                .getPayload();
-
-        return claims.getExpiration();
+        try {
+            Claims claims = this.jwtParser
+                    .parseSignedClaims(token)
+                    .getPayload();
+            return claims.getSubject();
+        } catch (ExpiredJwtException exception) {
+            return exception.getClaims().getSubject();
+        }
     }
 
     @Transactional
@@ -171,27 +167,6 @@ public class JwtAuthenticationService {
             log.error("JWT claims string is empty: {}", e.getMessage());
         }
         return false;
-    }
-
-    public boolean isTokenExpired(String token) {
-        try {
-            Date expiration = getExpirationDateFromToken(token);
-            return expiration.before(new Date());
-        } catch (Exception exception) {
-            return false;
-        }
-    }
-
-    public boolean isRefreshToken(String token) {
-        try {
-            Claims claims = this.jwtParser
-                    .parseSignedClaims(token)
-                    .getPayload();
-
-            return "refresh".equals(claims.get("tokenType", String.class));
-        } catch (Exception exception) {
-            return false;
-        }
     }
 
 }
