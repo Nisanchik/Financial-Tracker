@@ -23,6 +23,7 @@ import ru.mirea.newrav1k.userservice.service.JwtAuthenticationService;
 
 import java.security.interfaces.RSAPublicKey;
 import java.util.Base64;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -85,13 +86,12 @@ public class AuthenticationController {
         return ResponseEntity.noContent().build();
     }
 
-    @PreAuthorize("permitAll()")
+    @PreAuthorize("isAnonymous()")
     @GetMapping("/.well-known/jwks.json")
     public ResponseEntity<Map<String, Object>> getPublicJwts() {
         log.info("Request to retrieve public jwks");
         RSAPublicKey rsaPublicKey = (RSAPublicKey) this.jwtAuthenticationService.getPublicKey();
-
-        Map<String, Object> jwk = Map.of(
+        Map<String, Object> jwk = new LinkedHashMap<>(Map.of(
                 "kty", "RSA",
                 "kid", "rsa-key-1",
                 "alg", "RS256",
@@ -100,8 +100,8 @@ public class AuthenticationController {
                         .encodeToString(rsaPublicKey.getModulus().toByteArray()),
                 "e", Base64.getUrlEncoder().withoutPadding()
                         .encodeToString(rsaPublicKey.getPublicExponent().toByteArray())
-        );
-
+        ));
+        // TODO: посмотреть реализацию динамического kid'a и ротации ключей
         return ResponseEntity.ok(Map.of("keys", List.of(jwk)));
     }
 

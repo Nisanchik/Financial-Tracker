@@ -26,6 +26,8 @@ dependencies {
     implementation 'io.jsonwebtoken:jjwt-api:0.13.0'
     implementation 'org.projectlombok:lombok'
     implementation 'org.mapstruct:mapstruct:1.6.3'
+    implementation 'org.springframework.boot:spring-boot-starter-oauth2-client'
+    implementation 'org.springframework.boot:spring-boot-starter-oauth2-resource-server'
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
     testImplementation 'org.springframework.security:spring-security-test'
     runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.13.0'
