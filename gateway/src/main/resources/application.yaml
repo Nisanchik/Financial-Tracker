@@ -1,0 +1,36 @@
+spring:
+  application:
+    name: gateway
+  cloud:
+    gateway:
+      server:
+        webflux:
+          routes:
+            - id: user-service-authentication
+              uri: http://localhost:8081
+              predicates:
+                - Path=/api/auth/**
+            - id: user-service-customers
+              uri: http://localhost:8081
+              predicates:
+                - Path=/api/customers/**
+            - id: account-service
+              uri: http://localhost:8082
+              predicates:
+                - Path=/api/accounts/**
+              filters:
+                - JwtAuthenticationFilter
+            - id: transaction-service
+              uri: http://localhost:8083
+              predicates:
+                - Path=/api/transactions/**
+              filters:
+                - JwtAuthenticationFilter
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          jwk-set-uri: http://localhost:8081/api/auth/.wee-known/jwks.json
+
+server:
+  port: 8080
