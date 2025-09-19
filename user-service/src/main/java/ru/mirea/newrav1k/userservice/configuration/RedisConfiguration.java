@@ -41,8 +41,6 @@ public class RedisConfiguration {
         configuration.setPassword(this.password);
 
         LettuceClientConfiguration clientConfiguration = LettuceClientConfiguration.builder()
-                .useSsl()
-                .and()
                 .clientOptions(ClientOptions.builder()
                         .autoReconnect(true)
                         .timeoutOptions(TimeoutOptions.enabled(Duration.ofSeconds(3L)))
