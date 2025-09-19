@@ -1,4 +1,3 @@
-name: Financial-Tracker
 services:
 
   user-db:
@@ -36,6 +35,16 @@ services:
       - financial-network
     ports:
       - "5434:5432"
+
+  redis:
+    image: redis:latest
+    restart: always
+    environment:
+      REDIS_PASSWORD: $REDIS_PASSWORD
+    networks:
+      - financial-network
+    ports:
+      - "6379:6379"
 
   zookeeper:
     restart: always
