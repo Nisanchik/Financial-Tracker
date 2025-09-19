@@ -7,6 +7,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.CacheControl;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -21,10 +22,7 @@ import ru.mirea.newrav1k.userservice.security.token.JwtToken;
 import ru.mirea.newrav1k.userservice.service.CustomerService;
 import ru.mirea.newrav1k.userservice.service.JwtAuthenticationService;
 
-import java.security.interfaces.RSAPublicKey;
-import java.util.Base64;
-import java.util.LinkedHashMap;
-import java.util.List;
+import java.time.Duration;
 import java.util.Map;
 
 @Tag(name = "Authentication Controller",
@@ -80,7 +78,7 @@ public class AuthenticationController {
     @PreAuthorize("isAuthenticated()")
     @PostMapping("/logout")
     public ResponseEntity<Void> logout(@RequestParam("token") String token,
-                                       @RequestParam(value = "logoutAll", required = false, defaultValue = "false") boolean isLogoutAll) {
+                                       @RequestParam(value = "logoutAll", defaultValue = "false") boolean isLogoutAll) {
         log.info("Request to logout token: {}", token);
         this.customerService.logout(token, isLogoutAll);
         return ResponseEntity.noContent().build();
@@ -90,19 +88,9 @@ public class AuthenticationController {
     @GetMapping("/.well-known/jwks.json")
     public ResponseEntity<Map<String, Object>> getPublicJwts() {
         log.info("Request to retrieve public jwks");
-        RSAPublicKey rsaPublicKey = (RSAPublicKey) this.jwtAuthenticationService.getPublicKey();
-        Map<String, Object> jwk = new LinkedHashMap<>(Map.of(
-                "kty", "RSA",
-                "kid", "rsa-key-1",
-                "alg", "RS256",
-                "use", "sig",
-                "n", Base64.getUrlEncoder().withoutPadding()
-                        .encodeToString(rsaPublicKey.getModulus().toByteArray()),
-                "e", Base64.getUrlEncoder().withoutPadding()
-                        .encodeToString(rsaPublicKey.getPublicExponent().toByteArray())
-        ));
-        // TODO: посмотреть реализацию динамического kid'a и ротации ключей
-        return ResponseEntity.ok(Map.of("keys", List.of(jwk)));
+        return ResponseEntity.ok()
+                .cacheControl(CacheControl.maxAge(Duration.ofHours(1)))
+                .body(this.jwtAuthenticationService.generateJwks());
     }
 
 }

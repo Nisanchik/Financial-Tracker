@@ -2,6 +2,9 @@ package ru.mirea.newrav1k.userservice.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.dao.DataAccessException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
@@ -30,6 +33,7 @@ import ru.mirea.newrav1k.userservice.model.dto.LoginRequest;
 import ru.mirea.newrav1k.userservice.model.dto.RegistrationRequest;
 import ru.mirea.newrav1k.userservice.model.entity.Customer;
 import ru.mirea.newrav1k.userservice.model.entity.RefreshTokenEntity;
+import ru.mirea.newrav1k.userservice.model.enums.Authority;
 import ru.mirea.newrav1k.userservice.repository.CustomerRepository;
 import ru.mirea.newrav1k.userservice.repository.RefreshTokenEntityRepository;
 import ru.mirea.newrav1k.userservice.security.token.AccessToken;
@@ -57,6 +61,7 @@ public class CustomerService implements UserDetailsService {
 
     private final PasswordEncoder passwordEncoder;
 
+    @Cacheable(value = "profile-pages", key = "#pageable.pageNumber + '-' + #pageable.pageSize")
     @PreAuthorize("hasRole('ROLE_ADMIN')")
     public Page<CustomerResponse> findAll(Pageable pageable) {
         log.debug("Finding all customers");
@@ -64,6 +69,7 @@ public class CustomerService implements UserDetailsService {
                 .map(this.customerMapper::toCustomerResponse);
     }
 
+    @Cacheable(value = "profile-details", key = "#customerId")
     @PreAuthorize("@securityUtils.isSelfOrAdmin(#customerId, authentication)")
     public CustomerResponse findById(UUID customerId) {
         log.debug("Find customer by id: {}", customerId);
@@ -72,6 +78,7 @@ public class CustomerService implements UserDetailsService {
                 .orElseThrow(CustomerNotFoundException::new);
     }
 
+    @CacheEvict(value = "profile-pages", allEntries = true)
     @PreAuthorize("isAnonymous()")
     @Transactional
     public JwtToken register(RegistrationRequest request) {
@@ -145,6 +152,10 @@ public class CustomerService implements UserDetailsService {
         }
     }
 
+    @Caching(evict = {
+            @CacheEvict(value = "profile-details", key = "#customerId"),
+            @CacheEvict(value = "profile-pages", allEntries = true)
+    })
     @PreAuthorize("@securityUtils.isSelfOrAdmin(#customerId, authentication)")
     @Transactional
     public CustomerResponse changePersonalInfo(ChangePersonalInfoRequest request, UUID customerId) {
@@ -171,6 +182,10 @@ public class CustomerService implements UserDetailsService {
         return generateJwtToken(customer);
     }
 
+    @Caching(evict = {
+            @CacheEvict(value = "profile-details", key = "#customerId"),
+            @CacheEvict(value = "profile-pages", allEntries = true)
+    })
     @PreAuthorize("@securityUtils.isSelfOrAdmin(#customerId, authentication)")
     @Transactional
     public JwtToken changeUsername(ChangeUsernameRequest request, UUID customerId) {
@@ -189,6 +204,10 @@ public class CustomerService implements UserDetailsService {
         return generateJwtToken(customer);
     }
 
+    @Caching(evict = {
+            @CacheEvict(value = "profile-details", key = "#customerId"),
+            @CacheEvict(value = "profile-pages", allEntries = true)
+    })
     @PreAuthorize("@securityUtils.isSelfOrAdmin(#customerId, authentication)")
     @Transactional
     public void deleteById(UUID customerId) {
@@ -229,8 +248,10 @@ public class CustomerService implements UserDetailsService {
         return this.customerRepository.findByUsername(username)
                 .map(user -> User.builder()
                         .username(username)
-                        .password(this.passwordEncoder.encode(user.getPassword()))
-                        .roles("USER")
+                        .password(user.getPassword())
+                        .roles(user.getAuthorities().stream()
+                                .map(Authority::name)
+                                .toArray(String[]::new))
                         .build())
                 .orElseThrow(() -> new UsernameNotFoundException("Customer with " + username + " not found"));
     }

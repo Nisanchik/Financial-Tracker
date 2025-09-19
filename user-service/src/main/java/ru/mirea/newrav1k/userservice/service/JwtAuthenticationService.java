@@ -26,10 +26,14 @@ import ru.mirea.newrav1k.userservice.utils.KeyUtils;
 
 import java.security.PrivateKey;
 import java.security.PublicKey;
+import java.security.interfaces.RSAPublicKey;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Base64;
 import java.util.Date;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @Slf4j
@@ -111,6 +115,22 @@ public class JwtAuthenticationService {
         this.refreshTokenEntityRepository.save(refreshTokenEntity);
 
         return new RefreshToken(uuidToken, refreshTokenEntity.getExpiresAt());
+    }
+
+    public Map<String, Object> generateJwks() {
+        RSAPublicKey rsaPublicKey = (RSAPublicKey) this.getPublicKey();
+        Map<String, Object> jwk = new LinkedHashMap<>(Map.of(
+                "kty", "RSA",
+                "kid", "rsa-key-1",
+                "alg", "RS256",
+                "use", "sig",
+                "n", Base64.getUrlEncoder().withoutPadding()
+                        .encodeToString(rsaPublicKey.getModulus().toByteArray()),
+                "e", Base64.getUrlEncoder().withoutPadding()
+                        .encodeToString(rsaPublicKey.getPublicExponent().toByteArray())
+        ));
+        // TODO: посмотреть реализацию динамического kid'a и ротации ключей
+        return Map.of("keys", List.of(jwk));
     }
 
     public List<GrantedAuthority> getAuthoritiesFromToken(String token) {
