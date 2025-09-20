@@ -6,6 +6,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -123,7 +124,7 @@ public class TransactionService {
             return this.transactionMapper.toTransactionResponse(transaction);
         } catch (Exception exception) {
             log.error("Error while updating transaction with id {}", transactionId, exception);
-            throw new TransactionServiceException(TRANSACTION_UPDATE_FAILED);
+            throw new TransactionServiceException(TRANSACTION_UPDATE_FAILED, HttpStatus.BAD_REQUEST);
         }
     }
 

@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -52,9 +53,9 @@ public class OutboxService {
             this.outboxRepository.save(outboxEvent);
 
             log.debug("Saved OutboxEvent: topic={}, eventType={}, aggregateId={}", topic, eventType, aggregateId);
-        } catch (JsonProcessingException e) {
-            log.error("Failed to serialize event {}", event, e);
-            throw new TransactionServiceException("Failed to serialize event", e);
+        } catch (JsonProcessingException exception) {
+            log.error("Failed to serialize event {}", event, exception);
+            throw new TransactionServiceException("Failed to serialize event", exception, HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
 

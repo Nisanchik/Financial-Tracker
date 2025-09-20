@@ -1,22 +1,21 @@
 package ru.mirea.newrav1k.transactionservice.exception;
 
 import lombok.Getter;
+import org.springframework.http.HttpStatus;
 
 @Getter
 public class TransactionServiceException extends RuntimeException {
 
-    public final String messageCode;
+    private final HttpStatus status;
 
-    public final transient Object[] args;
-
-    public TransactionServiceException(String message) {
-        this.messageCode = message;
-        this.args = new Object[0];
+    public TransactionServiceException(String message, HttpStatus status) {
+        super(message);
+        this.status = status;
     }
 
-    public TransactionServiceException(String message, Object ... args) {
-        this.messageCode = message;
-        this.args = args;
+    public TransactionServiceException(String message, Throwable cause, HttpStatus status) {
+        super(message, cause);
+        this.status = status;
     }
 
 }
