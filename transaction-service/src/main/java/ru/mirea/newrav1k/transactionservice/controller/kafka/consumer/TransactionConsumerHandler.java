@@ -69,6 +69,8 @@ public class TransactionConsumerHandler {
         try {
             this.balanceService.compensateTransaction(event.transactionId(), event.accountId(), event.type(), event.amount());
 
+            this.transactionService.updateTransactionStatus(event.transactionId(), TransactionStatus.CANCELLED);
+
             this.processedEventService.markEventAsProcessed(new ProcessedEvent(event.compensationId()));
         } catch (DataIntegrityViolationException exception) {
             log.info("TransactionCompensateEvent {} successfully processed, skipping", event.compensationId());
