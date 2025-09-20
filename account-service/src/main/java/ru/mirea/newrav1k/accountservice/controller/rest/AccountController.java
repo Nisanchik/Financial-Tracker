@@ -8,10 +8,13 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.data.web.PagedModel;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -26,6 +29,7 @@ import org.springframework.web.util.UriComponentsBuilder;
 import ru.mirea.newrav1k.accountservice.model.dto.AccountCreateRequest;
 import ru.mirea.newrav1k.accountservice.model.dto.AccountResponse;
 import ru.mirea.newrav1k.accountservice.model.dto.AccountUpdateRequest;
+import ru.mirea.newrav1k.accountservice.security.HeaderAuthenticationDetails;
 import ru.mirea.newrav1k.accountservice.service.AccountService;
 
 import java.math.BigDecimal;
@@ -35,8 +39,9 @@ import java.util.UUID;
         description = "Контроллер для управления аккаунтами")
 @Slf4j
 @RestController
-@RequiredArgsConstructor
 @RequestMapping("/api/accounts")
+@PreAuthorize("isAuthenticated()")
+@RequiredArgsConstructor
 public class AccountController {
 
     private final AccountService accountService;
@@ -44,9 +49,11 @@ public class AccountController {
     @Operation(summary = "Загрузка аккаунтов",
             description = "Загружает все аккаунты")
     @GetMapping
-    public PagedModel<AccountResponse> loadAllAccounts(@PageableDefault Pageable pageable) {
-        log.info("Loading all accounts");
-        return new PagedModel<>(this.accountService.findAll(pageable));
+    public PagedModel<AccountResponse> getAllAccounts(@AuthenticationPrincipal HeaderAuthenticationDetails authentication,
+                                                      @PageableDefault Pageable pageable) {
+        log.info("Request to get all accounts");
+        Page<AccountResponse> accounts = this.accountService.findAllAccountsByUserId(authentication.getUserId(), pageable);
+        return new PagedModel<>(accounts);
     }
 
     @Operation(summary = "Загрузка аккаунта",
@@ -54,9 +61,10 @@ public class AccountController {
     @ApiResponse(responseCode = "404",
             description = "Аккаунт не найден")
     @GetMapping("/{accountId}")
-    public ResponseEntity<AccountResponse> loadAccount(@PathVariable("accountId") UUID accountId) {
-        log.info("Loading account with id {}", accountId);
-        AccountResponse account = this.accountService.findById(accountId);
+    public ResponseEntity<AccountResponse> getAccount(@AuthenticationPrincipal HeaderAuthenticationDetails authentication,
+                                                      @PathVariable("accountId") UUID accountId) {
+        log.info("Request to get account: accountId={}", accountId);
+        AccountResponse account = this.accountService.findByUserIdAndAccountId(authentication.getUserId(), accountId);
         return ResponseEntity.ok(account);
     }
 
@@ -65,10 +73,11 @@ public class AccountController {
     @ApiResponse(responseCode = "400",
             description = "Некорректный запрос")
     @PostMapping
-    public ResponseEntity<AccountResponse> createAccount(@Valid @RequestBody AccountCreateRequest request,
+    public ResponseEntity<AccountResponse> createAccount(@AuthenticationPrincipal HeaderAuthenticationDetails authentication,
+                                                         @Valid @RequestBody AccountCreateRequest request,
                                                          UriComponentsBuilder uriBuilder) {
-        log.info("Creating account {}", request);
-        AccountResponse account = this.accountService.create(request);
+        log.info("Request to create account: request={}", request);
+        AccountResponse account = this.accountService.create(request, authentication.getUserId());
         return ResponseEntity.created(uriBuilder
                         .replacePath("/api/account/{accountId}")
                         .build(account.id()))
@@ -83,10 +92,11 @@ public class AccountController {
             @ApiResponse(responseCode = "404",
                     description = "Аккаунт не найден")})
     @PutMapping("/{accountId}")
-    public ResponseEntity<AccountResponse> updateAccount(@PathVariable("accountId") UUID accountId,
+    public ResponseEntity<AccountResponse> updateAccount(@AuthenticationPrincipal HeaderAuthenticationDetails authentication,
+                                                         @PathVariable("accountId") UUID accountId,
                                                          @Valid @RequestBody AccountUpdateRequest request) {
-        log.info("Updating account {}", request);
-        AccountResponse account = this.accountService.update(accountId, request);
+        log.info("Request to update account: accountId={}, request={}", accountId, request);
+        AccountResponse account = this.accountService.update(authentication.getUserId(), accountId, request);
         return ResponseEntity.ok(account);
     }
 
@@ -98,19 +108,21 @@ public class AccountController {
             @ApiResponse(responseCode = "404",
                     description = "Аккаунт не найден")})
     @PatchMapping("/{accountId}")
-    public ResponseEntity<AccountResponse> patchAccount(@PathVariable("accountId") UUID accountId,
+    public ResponseEntity<AccountResponse> patchAccount(@AuthenticationPrincipal HeaderAuthenticationDetails authentication,
+                                                        @PathVariable("accountId") UUID accountId,
                                                         @RequestBody JsonNode jsonNode) {
-        log.info("Updating account {}", accountId);
-        AccountResponse account = this.accountService.update(accountId, jsonNode);
+        log.info("Request to patch account: accountId={}, jsonNode={}", accountId, jsonNode);
+        AccountResponse account = this.accountService.update(authentication.getUserId(), accountId, jsonNode);
         return ResponseEntity.ok(account);
     }
 
     @Operation(summary = "Удаление аккаунта",
             description = "Удаляет аккаунт по его идентификатору")
     @DeleteMapping("/{accountId}")
-    public ResponseEntity<Void> deleteAccount(@PathVariable("accountId") UUID accountId) {
-        log.info("Deleting account {}", accountId);
-        this.accountService.deleteById(accountId);
+    public ResponseEntity<Void> deleteAccount(@AuthenticationPrincipal HeaderAuthenticationDetails authentication,
+                                              @PathVariable("accountId") UUID accountId) {
+        log.info("Request to delete account: accountId={}", accountId);
+        this.accountService.deleteById(authentication.getUserId(), accountId);
         return ResponseEntity.noContent().build();
     }
 
@@ -126,9 +138,10 @@ public class AccountController {
     @PostMapping("/{accountId}/update-balance") // @PostMapping для корректной работы FeignClient
     public ResponseEntity<Void> updateAccountBalance(@PathVariable("accountId") UUID accountId,
                                                      @RequestParam("transactionId") UUID transactionId,
-                                                     @RequestParam("amount") BigDecimal amount) {
-        log.info("Updating account balance for account {}", accountId);
-        this.accountService.updateBalance(accountId, transactionId, amount);
+                                                     @RequestParam("amount") BigDecimal amount,
+                                                     @AuthenticationPrincipal HeaderAuthenticationDetails authentication) {
+        log.info("Request to update account balance: accountId={}, transactionId={}", accountId, transactionId);
+        this.accountService.updateBalance(authentication.getUserId(), accountId, transactionId, amount);
         return ResponseEntity.noContent().build();
     }
 
@@ -136,9 +149,10 @@ public class AccountController {
             description = "Пополняет баланс аккаунта по его идентификатору", deprecated = true)
     @PostMapping("/{accountId}/withdraw-balance") // @PostMapping для корректной работы FeignClient
     public ResponseEntity<Void> withdrawAccountBalance(@PathVariable("accountId") UUID accountId,
-                                                       @RequestParam("amount") BigDecimal amount) {
-        log.info("Withdrawing account {}", accountId);
-        this.accountService.withdrawMoney(accountId, amount);
+                                                       @RequestParam("amount") BigDecimal amount,
+                                                       @AuthenticationPrincipal HeaderAuthenticationDetails authentication) {
+        log.info("Request to withdraw account balance: accountId={}", accountId);
+        this.accountService.withdrawMoney(authentication.getUserId(), accountId, amount);
         return ResponseEntity.noContent().build();
     }
 
@@ -146,9 +160,10 @@ public class AccountController {
             description = "Пополняет баланс аккаунта по его идентификатору", deprecated = true)
     @PostMapping("/{accountId}/deposit-balance") // @PostMapping для корректной работы FeignClient
     public ResponseEntity<Void> depositAccountBalance(@PathVariable("accountId") UUID accountId,
-                                                      @RequestParam("amount") BigDecimal amount) {
-        log.info("Deposit account balance for account {}", accountId);
-        this.accountService.depositMoney(accountId, amount);
+                                                      @RequestParam("amount") BigDecimal amount,
+                                                      @AuthenticationPrincipal HeaderAuthenticationDetails authentication) {
+        log.info("Request to deposit account balance: accountId={}", accountId);
+        this.accountService.depositMoney(authentication.getUserId(), accountId, amount);
         return ResponseEntity.noContent().build();
     }
 
@@ -160,9 +175,10 @@ public class AccountController {
             @ApiResponse(responseCode = "404",
                     description = "Аккаунт не найден")})
     @PatchMapping("/{accountId}/deactivate")
-    public ResponseEntity<Void> deactivateAccount(@PathVariable("accountId") UUID accountId) {
-        log.info("Deactivating account {}", accountId);
-        this.accountService.deactivateAccount(accountId);
+    public ResponseEntity<Void> deactivateAccount(@PathVariable("accountId") UUID accountId,
+                                                  @AuthenticationPrincipal HeaderAuthenticationDetails authentication) {
+        log.info("Request to deactivate account: accountId={}", accountId);
+        this.accountService.deactivateAccount(authentication.getUserId(), accountId);
         return ResponseEntity.noContent().build();
     }
 
