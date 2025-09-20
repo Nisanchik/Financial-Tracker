@@ -18,8 +18,12 @@ public class MessageCode {
 
     public static final String GENERIC_ERROR = "error.generic";
 
-    public static final String RETRY_EXHAUSTED = "error.retry_exhausted";
-
     public static final String BALANCE_NOT_ZERO = "error.account_not_zero_balance";
+
+    public static final String ACCOUNT_ACCESS_DENIED = "error.account_access_denied";
+
+    public static final String ACCOUNT_TYPE_CANNOT_UPDATE = "error.account_type_cannot_update";
+
+    public static final String UPDATE_BALANCE_FAILED = "error.update_balance_failed";
 
 }
