@@ -2,7 +2,6 @@ package ru.mirea.newrav1k.accountservice.model.dto;
 
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
-import ru.mirea.newrav1k.accountservice.model.enums.AccountType;
 import ru.mirea.newrav1k.accountservice.model.enums.Currency;
 
 public record AccountUpdateRequest(
@@ -11,10 +10,7 @@ public record AccountUpdateRequest(
         String name,
 
         @NotNull(message = "account.currency.null")
-        Currency currency,
-
-        @NotNull(message = "account.type.null")
-        AccountType type
+        Currency currency
 ) {
 
 }
