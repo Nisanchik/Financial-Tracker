@@ -31,7 +31,7 @@ public class BalanceService {
     private void updateBalanceFallback(UUID transactionId, UUID accountId,
                                        TransactionType transactionType, BigDecimal amount, Throwable exception) {
         log.error("Error updating balance for account {} from transaction {}", accountId, transactionId, exception);
-        this.transactionEventPublisher.publishBalanceUpdateFailureEvent(transactionId, accountId, transactionType, amount);
+        this.transactionEventPublisher.publishExternalBalanceUpdateFailureEvent(transactionId, accountId, transactionType, amount);
     }
 
     @CircuitBreaker(name = "compensateTransaction", fallbackMethod = "compensateTransactionFallback")
@@ -47,7 +47,7 @@ public class BalanceService {
     private void compensateTransactionFallback(UUID transactionId, UUID accountId,
                                                TransactionType transactionType, BigDecimal amount, Throwable exception) {
         log.error("Cannot compensate transaction {} for account {}", transactionId, accountId, exception);
-        this.transactionEventPublisher.publishTransactionCompensateEvent(transactionId, accountId, transactionType, amount);
+        this.transactionEventPublisher.publishExternalTransactionCompensateEvent(transactionId, accountId, transactionType, amount);
     }
 
     @CircuitBreaker(name = "compensateDifferenceAmount", fallbackMethod = "compensateDifferenceAmountFallback")
@@ -65,7 +65,7 @@ public class BalanceService {
     private void compensateDifferenceAmountFallback(UUID transactionId, UUID accountId, TransactionType transactionType,
                                                     BigDecimal oldAmount, BigDecimal newAmount, Throwable exception) {
         log.error("Cannot compensate difference amount for account {} with transaction type {}", accountId, transactionType, exception);
-        this.transactionEventPublisher.publishTransactionCompensateDifferenceAmountEvent(
+        this.transactionEventPublisher.publishExternalCompensateDifferenceAmountEvent(
                 transactionId,
                 accountId,
                 transactionType,

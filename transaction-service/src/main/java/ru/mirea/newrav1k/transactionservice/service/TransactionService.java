@@ -79,7 +79,7 @@ public class TransactionService {
                     }
                     if (request.amount() != null) {
                         if (!transaction.getAmount().equals(request.amount())) {
-                            this.transactionEventPublisher.publishInternalTransactionCompensateDifferenceAmountEvent(
+                            this.transactionEventPublisher.publishInternalCompensateDifferenceAmountEvent(
                                     transaction.getId(),
                                     transaction.getAccountId(),
                                     transaction.getType(),
@@ -109,7 +109,7 @@ public class TransactionService {
             if (jsonNode.has("amount")) {
                 BigDecimal requestAmount = jsonNode.get("amount").decimalValue();
                 if (!transaction.getAmount().equals(requestAmount)) {
-                    this.transactionEventPublisher.publishInternalTransactionCompensateDifferenceAmountEvent(
+                    this.transactionEventPublisher.publishInternalCompensateDifferenceAmountEvent(
                             transaction.getId(),
                             transaction.getAccountId(),
                             transaction.getType(),

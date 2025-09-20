@@ -7,7 +7,8 @@ import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.stereotype.Component;
 import ru.mirea.newrav1k.transactionservice.event.BalanceUpdateFailureEvent;
-import ru.mirea.newrav1k.transactionservice.event.TransactionCompensateDifferenceAmountEvent;
+import ru.mirea.newrav1k.transactionservice.event.CompensateDifferenceAmountEvent;
+import ru.mirea.newrav1k.transactionservice.event.CompensateFailureEvent;
 import ru.mirea.newrav1k.transactionservice.event.TransactionCompensateEvent;
 import ru.mirea.newrav1k.transactionservice.event.TransactionSuccessCreatedEvent;
 import ru.mirea.newrav1k.transactionservice.model.entity.ProcessedEvent;
@@ -64,23 +65,46 @@ public class TransactionConsumerHandler {
     @KafkaListener(topics = "${transaction-service.kafka.topics.transaction-compensate}",
             groupId = "${transaction-service.kafka.group-id}", containerFactory = "kafkaListenerContainerFactory")
     public void handleCompensateTransaction(@Payload TransactionCompensateEvent event) {
-        log.debug("Handling CompensationEvent {}", event);
+        log.debug("Handling TransactionCompensateEvent {}", event);
         try {
             this.balanceService.compensateTransaction(event.transactionId(), event.accountId(), event.type(), event.amount());
 
-            this.processedEventService.markEventAsProcessed(new ProcessedEvent(event.eventId()));
+            this.processedEventService.markEventAsProcessed(new ProcessedEvent(event.compensationId()));
         } catch (DataIntegrityViolationException exception) {
-            log.info("TransactionCompensationEvent {} successfully processed, skipping", event.eventId());
+            log.info("TransactionCompensateEvent {} successfully processed, skipping", event.compensationId());
         } catch (Exception exception) {
-            log.error("Error while handling CompensationEvent {}", event.eventId(), exception);
+            log.error("Error while handling TransactionCompensateEvent {}", event.compensationId(), exception);
+            throw exception;
+        }
+    }
+
+    @KafkaListener(topics = "${transaction-service.kafka.topics.transaction-compensate-failure}",
+            groupId = "${transaction-service.kafka.group-id}", containerFactory = "kafkaListenerContainerFactory")
+    public void handleCompensateFailure(@Payload CompensateFailureEvent event) {
+        log.debug("Handling CompensateFailureEvent {}", event);
+        try {
+            this.balanceService.compensateTransaction(
+                    event.compensationId(),
+                    event.accountId(),
+                    event.transactionType(),
+                    event.amount()
+            );
+
+            this.transactionService.updateTransactionStatus(event.transactionId(), TransactionStatus.FAILED);
+
+            this.processedEventService.markEventAsProcessed(new ProcessedEvent(event.compensationId()));
+        } catch (DataIntegrityViolationException exception) {
+            log.info("CompensateFailureEvent {} successfully processed, skipping", event.compensationId());
+        } catch (Exception exception) {
+            log.error("Error while handling CompensateFailureEvent {}", event.compensationId(), exception);
             throw exception;
         }
     }
 
     @KafkaListener(topics = "${transaction-service.kafka.topics.transaction-compensate-difference-amount}",
             groupId = "${transaction-service.kafka.group-id}", containerFactory = "kafkaListenerContainerFactory")
-    public void handleTransactionCompensateDifferenceAmount(@Payload TransactionCompensateDifferenceAmountEvent event) {
-        log.debug("Handling TransactionCompensateDifferenceAmountEvent {}", event);
+    public void handleTransactionCompensateDifferenceAmount(@Payload CompensateDifferenceAmountEvent event) {
+        log.debug("Handling CompensateDifferenceAmountEvent {}", event);
         try {
             this.balanceService.compensateDifferenceAmount(
                     event.compensationId(),
@@ -92,9 +116,9 @@ public class TransactionConsumerHandler {
 
             this.processedEventService.markEventAsProcessed(new ProcessedEvent(event.compensationId()));
         } catch (DataIntegrityViolationException exception) {
-            log.info("TransactionCompensateDifferenceAmountEvent {} successfully processed, skipping", event.compensationId());
+            log.info("CompensateDifferenceAmountEvent {} successfully processed, skipping", event.compensationId());
         } catch (Exception exception) {
-            log.error("Error while handling TransactionCompensateDifferenceAmountEvent {}", event.compensationId(), exception);
+            log.error("Error while handling CompensateDifferenceAmountEvent {}", event.compensationId(), exception);
             throw exception;
         }
     }
