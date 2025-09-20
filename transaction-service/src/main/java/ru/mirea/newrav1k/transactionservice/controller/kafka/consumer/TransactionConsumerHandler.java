@@ -114,6 +114,8 @@ public class TransactionConsumerHandler {
                     event.newAmount()
             );
 
+            this.transactionService.updateTransactionStatus(event.transactionId(), TransactionStatus.COMPLETED);
+
             this.processedEventService.markEventAsProcessed(new ProcessedEvent(event.compensationId()));
         } catch (DataIntegrityViolationException exception) {
             log.info("CompensateDifferenceAmountEvent {} successfully processed, skipping", event.compensationId());

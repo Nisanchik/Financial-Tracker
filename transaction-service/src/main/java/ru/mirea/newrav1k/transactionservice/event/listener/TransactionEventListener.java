@@ -64,13 +64,14 @@ public class TransactionEventListener {
     @TransactionalEventListener(classes = CompensateDifferenceAmountEvent.class)
     public void handleCompensateDifferenceAmountEvent(CompensateDifferenceAmountEvent event) {
         log.debug("Compensate difference amount event: {}", event);
-        this.transactionEventPublisher.publishExternalCompensateDifferenceAmountEvent(
-                event.transactionId(),
+        this.balanceService.compensateDifferenceAmount(
+                event.compensationId(),
                 event.accountId(),
                 event.transactionType(),
                 event.oldAmount(),
                 event.newAmount()
         );
+        this.transactionService.updateTransactionStatus(event.transactionId(), TransactionStatus.COMPLETED);
     }
 
     private void handleCompensateDifferenceAmountFallback(CompensateDifferenceAmountEvent event, Throwable throwable) {
