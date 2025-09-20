@@ -6,6 +6,11 @@ spring:
     username: ${ACCOUNT_DATABASE_USER:account-admin}
     password: ${ACCOUNT_DATABASE_PASSWORD:account-password}
     driver-class-name: org.postgresql.Driver
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      password: ${REDIS_PASSWORD:paZnybeyXR9Fx4ah}
   jpa:
     hibernate:
       ddl-auto: create

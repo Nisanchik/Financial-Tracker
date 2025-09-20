@@ -3,6 +3,9 @@ package ru.mirea.newrav1k.accountservice.service;
 import com.fasterxml.jackson.databind.JsonNode;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.data.domain.Page;
@@ -48,12 +51,14 @@ public class AccountService {
     private final AccountMapper accountMapper;
 
     @PreAuthorize("hasRole('ADMIN')")
+    @Cacheable(value = "account-pages", keyGenerator = "pageableKeyGenerator")
     public Page<AccountResponse> findAll(Pageable pageable) {
         log.debug("Finding all accounts");
         return this.accountRepository.findAll(pageable)
                 .map(this.accountMapper::toAccountResponse);
     }
 
+    @Cacheable(value = "account-pages", key = "#userId", keyGenerator = "pageableKeyGenerator")
     public Page<AccountResponse> findAllAccountsByUserId(UUID userId, Pageable pageable) {
         log.debug("Finding all user accounts");
         return this.accountRepository.findAllByUserId(userId, pageable)
@@ -61,6 +66,7 @@ public class AccountService {
     }
 
     @PreAuthorize("hasRole('ADMIN')")
+    @Cacheable(value = "account-details", key = "#accountId")
     public AccountResponse findById(UUID accountId) {
         log.debug("Finding account: accountId={}", accountId);
         return this.accountRepository.findById(accountId)
@@ -68,6 +74,7 @@ public class AccountService {
                 .orElseThrow(AccountNotFoundException::new);
     }
 
+    @Cacheable(value = "account-details", key = "#userId + '-' + #accountId")
     public AccountResponse findByUserIdAndAccountId(UUID userId, UUID accountId) {
         log.debug("Finding account: userId={}, accountId={}", userId, accountId);
         return this.accountRepository.findAccountByUserIdAndId(userId, accountId)
@@ -85,6 +92,10 @@ public class AccountService {
     }
 
     @PreAuthorize("isAuthenticated()")
+    @Caching(evict = {
+            @CacheEvict(value = "account-details", key = "#userId + '-' + #accountId"),
+            @CacheEvict(value = "account-pages", allEntries = true)
+    })
     @Transactional
     public AccountResponse update(UUID userId, UUID accountId, AccountUpdateRequest request) {
         log.debug("Update account: userId={}, accountId={}, request={}", userId, accountId, request);
@@ -102,6 +113,10 @@ public class AccountService {
     }
 
     @PreAuthorize("isAuthenticated()")
+    @Caching(evict = {
+            @CacheEvict(value = "account-details", key = "#userId + '-' + #accountId"),
+            @CacheEvict(value = "account-pages", allEntries = true)
+    })
     @Transactional
     public AccountResponse update(UUID userId, UUID accountId, JsonNode jsonNode) {
         log.debug("Update account: userId={}, accountId={}, jsonNode={}", userId, accountId, jsonNode);
@@ -125,6 +140,10 @@ public class AccountService {
     }
 
     @PreAuthorize("isAuthenticated()")
+    @Caching(evict = {
+            @CacheEvict(value = "account-details", key = "#userId + '-' + #accountId"),
+            @CacheEvict(value = "account-pages", allEntries = true)
+    })
     @Transactional
     public void deleteById(UUID userId, UUID accountId) {
         log.debug("Deleting account: userId={}, accountId={}", userId, accountId);
@@ -132,6 +151,10 @@ public class AccountService {
     }
 
     @PreAuthorize("isAuthenticated()")
+    @Caching(evict = {
+            @CacheEvict(value = "account-details", key = "#userId + '-' + #accountId"),
+            @CacheEvict(value = "account-pages", allEntries = true)
+    })
     @Retryable(
             retryFor = {
                     ObjectOptimisticLockingFailureException.class,
@@ -161,6 +184,10 @@ public class AccountService {
 
     @Deprecated(forRemoval = true)
     @PreAuthorize("isAuthenticated()")
+    @Caching(evict = {
+            @CacheEvict(value = "account-details", key = "#userId + '-' + #accountId"),
+            @CacheEvict(value = "account-pages", allEntries = true)
+    })
     @Transactional
     public void depositMoney(UUID userId, UUID accountId, BigDecimal amount) {
         log.debug("Deposit money: accountId={}, amount={}", accountId, amount);
@@ -170,6 +197,10 @@ public class AccountService {
 
     @Deprecated(forRemoval = true)
     @PreAuthorize("isAuthenticated()")
+    @Caching(evict = {
+            @CacheEvict(value = "account-details", key = "#userId + '-' + #accountId"),
+            @CacheEvict(value = "account-pages", allEntries = true)
+    })
     @Transactional
     public void withdrawMoney(UUID userId, UUID accountId, BigDecimal amount) {
         log.debug("Withdraw money: accountId={}, amount={}", accountId, amount);
@@ -178,6 +209,10 @@ public class AccountService {
     }
 
     @PreAuthorize("isAuthenticated()")
+    @Caching(evict = {
+            @CacheEvict(value = "account-details", key = "#userId + '-' + #accountId"),
+            @CacheEvict(value = "account-pages", allEntries = true)
+    })
     @Transactional
     public void deactivateAccount(UUID userId, UUID accountId) {
         log.debug("Deactivate account: userId={}, accountId={}", userId, accountId);
@@ -212,7 +247,7 @@ public class AccountService {
     }
 
     @Recover
-    public void updateBalanceRecover(ObjectOptimisticLockingFailureException ex,
+    private void updateBalanceRecover(ObjectOptimisticLockingFailureException ex,
                                      UUID userId, UUID accountId, UUID transactionId, BigDecimal amount) {
         log.error("Error while update balance: " +
                 "userId={}, accountId={}, transactionId={}, amount={}", userId, accountId, transactionId, amount, ex);
