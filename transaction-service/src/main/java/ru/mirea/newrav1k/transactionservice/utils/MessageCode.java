@@ -14,4 +14,6 @@ public class MessageCode {
 
     public static final String TRANSACTION_ALREADY_COMPLETED = "error.transaction_already_completed";
 
+    public static final String TRANSACTION_ACCESS_DENIED = "error.transaction_access_denied";
+
 }
