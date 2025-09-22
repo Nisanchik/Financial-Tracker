@@ -15,14 +15,14 @@ import java.util.UUID;
 @Repository
 public interface AccountRepository extends JpaRepository<Account, UUID> {
 
-    Page<Account> findAllByUserId(UUID userId, Pageable pageable);
+    Page<Account> findAllByTrackerId(UUID trackerId, Pageable pageable);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
-    @Query("select a from Account a where a.id = :accountId and a.userId = :userId")
-    Optional<Account> findAccountByUserIdAndIdForPessimisticLock(UUID userId, UUID accountId);
+    @Query("select a from Account a where a.id = :accountId and a.trackerId = :trackerId")
+    Optional<Account> findAccountByTrackerIdAndIdForPessimisticLock(UUID trackerId, UUID accountId);
 
-    Optional<Account> findAccountByUserIdAndId(UUID userId, UUID accountId);
+    Optional<Account> findAccountByTrackerIdAndId(UUID trackerId, UUID accountId);
 
-    void deleteAccountByUserIdAndId(UUID userId, UUID accountId);
+    void deleteAccountByTrackerIdAndId(UUID trackerId, UUID accountId);
 
 }

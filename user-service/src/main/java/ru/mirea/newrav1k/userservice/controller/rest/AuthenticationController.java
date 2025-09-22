@@ -19,7 +19,7 @@ import org.springframework.web.bind.annotation.RestController;
 import ru.mirea.newrav1k.userservice.model.dto.LoginRequest;
 import ru.mirea.newrav1k.userservice.model.dto.RegistrationRequest;
 import ru.mirea.newrav1k.userservice.security.token.JwtToken;
-import ru.mirea.newrav1k.userservice.service.CustomerService;
+import ru.mirea.newrav1k.userservice.service.TrackerService;
 import ru.mirea.newrav1k.userservice.service.JwtAuthenticationService;
 
 import java.time.Duration;
@@ -35,7 +35,7 @@ public class AuthenticationController {
 
     private final JwtAuthenticationService jwtAuthenticationService;
 
-    private final CustomerService customerService;
+    private final TrackerService trackerService;
 
     @Operation(summary = "Регистрация клиента",
             description = "Регистрирует клиента и выдаёт ему jwt токен")
@@ -45,7 +45,7 @@ public class AuthenticationController {
     @PostMapping("/register")
     public ResponseEntity<JwtToken> register(@Valid @RequestBody RegistrationRequest request) {
         log.info("Request to register: {}", request);
-        JwtToken token = this.customerService.register(request);
+        JwtToken token = this.trackerService.register(request);
         return ResponseEntity.ok(token);
     }
 
@@ -56,7 +56,7 @@ public class AuthenticationController {
     @PostMapping("/login")
     public ResponseEntity<JwtToken> login(@Valid @RequestBody LoginRequest request) {
         log.info("Request to login: {}", request);
-        JwtToken token = this.customerService.login(request);
+        JwtToken token = this.trackerService.login(request);
         return ResponseEntity.ok(token);
     }
 
@@ -68,7 +68,7 @@ public class AuthenticationController {
     @PostMapping("/refresh")
     public ResponseEntity<JwtToken> refresh(@RequestParam("token") String token) {
         log.info("Request to refresh token: {}", token);
-        JwtToken refreshedToken = this.customerService.refresh(token);
+        JwtToken refreshedToken = this.trackerService.refresh(token);
         return ResponseEntity.ok(refreshedToken);
     }
 
@@ -80,7 +80,7 @@ public class AuthenticationController {
     public ResponseEntity<Void> logout(@RequestParam("token") String token,
                                        @RequestParam(value = "logoutAll", defaultValue = "false") boolean isLogoutAll) {
         log.info("Request to logout token: {}", token);
-        this.customerService.logout(token, isLogoutAll);
+        this.trackerService.logout(token, isLogoutAll);
         return ResponseEntity.noContent().build();
     }
 

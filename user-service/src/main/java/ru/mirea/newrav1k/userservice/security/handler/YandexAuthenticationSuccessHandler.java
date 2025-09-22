@@ -14,7 +14,7 @@ import org.springframework.security.oauth2.core.OAuth2RefreshToken;
 import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
 import org.springframework.stereotype.Component;
 import ru.mirea.newrav1k.userservice.model.entity.YandexToken;
-import ru.mirea.newrav1k.userservice.security.principal.YandexCustomer;
+import ru.mirea.newrav1k.userservice.security.principal.YandexOAuth2Tracker;
 import ru.mirea.newrav1k.userservice.security.token.JwtToken;
 import ru.mirea.newrav1k.userservice.service.JwtAuthenticationService;
 import ru.mirea.newrav1k.userservice.service.YandexAuthenticationService;
@@ -45,12 +45,12 @@ public class YandexAuthenticationSuccessHandler implements AuthenticationSuccess
         OAuth2AccessToken accessToken = oAuth2AuthorizedClient.getAccessToken();
         OAuth2RefreshToken refreshToken = oAuth2AuthorizedClient.getRefreshToken();
 
-        YandexCustomer yandexCustomer = (YandexCustomer) authentication.getPrincipal();
+        YandexOAuth2Tracker yandexOAuth2Tracker = (YandexOAuth2Tracker) authentication.getPrincipal();
 
-        YandexToken yandexToken = this.yandexAuthenticationService.buildYandexToken(yandexCustomer.getCustomerId(), accessToken, refreshToken);
+        YandexToken yandexToken = this.yandexAuthenticationService.buildYandexToken(yandexOAuth2Tracker.getTrackerId(), accessToken, refreshToken);
         JwtToken jwtToken = new JwtToken(
-                this.jwtAuthenticationService.generateAccessToken(yandexCustomer.getCustomerId(), yandexCustomer.getUsername()),
-                this.jwtAuthenticationService.generateRefreshToken(yandexCustomer.getCustomerId())
+                this.jwtAuthenticationService.generateAccessToken(yandexOAuth2Tracker.getTrackerId(), yandexOAuth2Tracker.getUsername()),
+                this.jwtAuthenticationService.generateRefreshToken(yandexOAuth2Tracker.getTrackerId())
         );
         AuthenticationSuccessResponse successResponse = new AuthenticationSuccessResponse(jwtToken, yandexToken);
 

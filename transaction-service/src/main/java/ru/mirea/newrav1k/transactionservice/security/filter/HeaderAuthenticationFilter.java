@@ -29,17 +29,17 @@ public class HeaderAuthenticationFilter extends OncePerRequestFilter {
             @NonNull HttpServletRequest request,
             @NonNull HttpServletResponse response,
             @NonNull FilterChain filterChain) throws ServletException, IOException {
-        String userId = request.getHeader("X-User-Id");
-        String userAuthorities = request.getHeader("X-User-Authorities");
-        if (userId != null && userAuthorities != null) {
+        String tracker = request.getHeader("X-Tracker-Id");
+        String trackerAuthorities = request.getHeader("X-Tracker-Authorities");
+        if (tracker != null && trackerAuthorities != null) {
             try {
-                List<GrantedAuthority> authorities = Arrays.stream(userAuthorities.split(","))
+                List<GrantedAuthority> authorities = Arrays.stream(trackerAuthorities.split(","))
                         .map(String::trim)
                         .filter(auth -> !auth.isEmpty())
                         .map(SimpleGrantedAuthority::new)
                         .collect(Collectors.toList());
                 HeaderAuthenticationDetails headerAuthenticationToken =
-                        new HeaderAuthenticationDetails(UUID.fromString(userId), authorities);
+                        new HeaderAuthenticationDetails(UUID.fromString(tracker), authorities);
                 UsernamePasswordAuthenticationToken authenticationToken =
                         new UsernamePasswordAuthenticationToken(headerAuthenticationToken, null, authorities);
                 SecurityContextHolder.getContext().setAuthentication(authenticationToken);

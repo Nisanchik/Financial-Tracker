@@ -50,11 +50,11 @@ public class TransactionController {
             description = "Загружает все транзакции с использованием фильтра для поиска")
     @GetMapping
     public PagedModel<TransactionResponse> getAllTransactions(@AuthenticationPrincipal HeaderAuthenticationDetails authenticationDetails,
-                                                               @Valid @ModelAttribute TransactionFilter filter,
-                                                               @PageableDefault Pageable pageable) {
+                                                              @Valid @ModelAttribute TransactionFilter filter,
+                                                              @PageableDefault Pageable pageable) {
         log.info("Getting all transactions: filter={}", filter);
         Page<TransactionResponse> transactions =
-                this.transactionalService.findAllByUserId(authenticationDetails.getUserId(), filter, pageable);
+                this.transactionalService.findAllByTrackerId(authenticationDetails.getTrackerId(), filter, pageable);
         return new PagedModel<>(transactions);
     }
 
@@ -64,9 +64,9 @@ public class TransactionController {
             description = "Транзакция не найдена")
     @GetMapping("/{transactionId}")
     public ResponseEntity<TransactionResponse> getTransaction(@AuthenticationPrincipal HeaderAuthenticationDetails authenticationDetails,
-                                                               @PathVariable("transactionId") UUID transactionId) {
+                                                              @PathVariable("transactionId") UUID transactionId) {
         log.info("Getting transaction: transactionId={}", transactionId);
-        TransactionResponse transaction = this.transactionalService.findById(authenticationDetails.getUserId(), transactionId);
+        TransactionResponse transaction = this.transactionalService.findById(authenticationDetails.getTrackerId(), transactionId);
         return ResponseEntity.ok(transaction);
     }
 
@@ -79,7 +79,7 @@ public class TransactionController {
                                                                  @Valid @RequestBody TransactionCreateRequest request,
                                                                  UriComponentsBuilder uriBuilder) {
         log.info("Creating transaction: request={}", request);
-        TransactionResponse transaction = this.transactionalService.create(authenticationDetails.getUserId(), request);
+        TransactionResponse transaction = this.transactionalService.create(authenticationDetails.getTrackerId(), request);
         return ResponseEntity.created(uriBuilder
                         .replacePath("/api/transaction/{transactionId}")
                         .build(transaction.id()))
@@ -98,7 +98,7 @@ public class TransactionController {
                                                                  @PathVariable("transactionId") UUID transactionId,
                                                                  @Valid @RequestBody TransactionUpdateRequest request) {
         log.info("Updating transaction: transactionId={}, request={}", transactionId, request);
-        TransactionResponse transaction = this.transactionalService.updateById(authenticationDetails.getUserId(), transactionId, request);
+        TransactionResponse transaction = this.transactionalService.updateById(authenticationDetails.getTrackerId(), transactionId, request);
         return ResponseEntity.ok(transaction);
     }
 
@@ -115,7 +115,7 @@ public class TransactionController {
                                                                         @RequestBody JsonNode jsonNode) {
         log.info("Updated transaction: transactionId={}, jsonNode={}", transactionId, jsonNode);
         TransactionResponse transaction =
-                this.transactionalService.updateById(authenticationDetails.getUserId(), transactionId, jsonNode);
+                this.transactionalService.updateById(authenticationDetails.getTrackerId(), transactionId, jsonNode);
         return ResponseEntity.ok(transaction);
     }
 
@@ -125,7 +125,7 @@ public class TransactionController {
     public ResponseEntity<Void> deleteTransaction(@AuthenticationPrincipal HeaderAuthenticationDetails authenticationDetails,
                                                   @PathVariable("transactionId") UUID transactionId) {
         log.info("Deleting transaction: transactionId={}", transactionId);
-        this.transactionalService.deleteById(authenticationDetails.getUserId(), transactionId);
+        this.transactionalService.deleteById(authenticationDetails.getTrackerId(), transactionId);
         return ResponseEntity.noContent().build();
     }
 

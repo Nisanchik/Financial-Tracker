@@ -23,30 +23,30 @@ import org.springframework.web.bind.annotation.RestController;
 import ru.mirea.newrav1k.userservice.model.dto.ChangePasswordRequest;
 import ru.mirea.newrav1k.userservice.model.dto.ChangePersonalInfoRequest;
 import ru.mirea.newrav1k.userservice.model.dto.ChangeUsernameRequest;
-import ru.mirea.newrav1k.userservice.model.dto.CustomerResponse;
-import ru.mirea.newrav1k.userservice.security.principal.CustomerPrincipal;
+import ru.mirea.newrav1k.userservice.model.dto.TrackerResponse;
+import ru.mirea.newrav1k.userservice.security.principal.TrackerPrincipal;
 import ru.mirea.newrav1k.userservice.security.token.JwtToken;
-import ru.mirea.newrav1k.userservice.service.CustomerService;
+import ru.mirea.newrav1k.userservice.service.TrackerService;
 
 import java.util.UUID;
 
-@Tag(name = "Customer Controller",
+@Tag(name = "Tracker Controller",
         description = "Контроллер для управления клиентами")
 @Slf4j
 @RestController
 @RequiredArgsConstructor
-@RequestMapping("/api/customers")
-public class CustomerController {
+@RequestMapping("/api/trackers")
+public class TrackerController {
 
-    private final CustomerService customerService;
+    private final TrackerService trackerService;
 
     @Operation(summary = "Получение списка клиентов",
             description = "Получает список клиентов. Доступно только для администратора")
     @PreAuthorize("hasRole('ROLE_ADMIN')")
     @GetMapping
-    public PagedModel<CustomerResponse> getAllCustomers(@PageableDefault Pageable pageable) {
-        log.info("Request to get all customers");
-        return new PagedModel<>(this.customerService.findAll(pageable));
+    public PagedModel<TrackerResponse> getAllTrackers(@PageableDefault Pageable pageable) {
+        log.info("Request to get all trackers");
+        return new PagedModel<>(this.trackerService.findAll(pageable));
     }
 
     @Operation(summary = "Получение персональной информации",
@@ -54,10 +54,10 @@ public class CustomerController {
     @ApiResponse(responseCode = "404", description = "Клиент не найден")
     @PreAuthorize("isAuthenticated()")
     @GetMapping("/me")
-    public ResponseEntity<CustomerResponse> me(@AuthenticationPrincipal CustomerPrincipal principal) {
+    public ResponseEntity<TrackerResponse> me(@AuthenticationPrincipal TrackerPrincipal principal) {
         log.info("Request to get information about me");
-        CustomerResponse customer = this.customerService.findById(principal.getId());
-        return ResponseEntity.ok(customer);
+        TrackerResponse tracker = this.trackerService.findById(principal.getTrackerId());
+        return ResponseEntity.ok(tracker);
     }
 
     @Operation(summary = "Изменение персональных данных",
@@ -66,11 +66,11 @@ public class CustomerController {
             @ApiResponse(responseCode = "400", description = "Некорректные данные")})
     @PreAuthorize("isAuthenticated()")
     @PutMapping("/me")
-    public ResponseEntity<CustomerResponse> changePersonalInfo(@Valid @RequestBody ChangePersonalInfoRequest request,
-                                                               @AuthenticationPrincipal CustomerPrincipal principal) {
+    public ResponseEntity<TrackerResponse> changePersonalInfo(@Valid @RequestBody ChangePersonalInfoRequest request,
+                                                              @AuthenticationPrincipal TrackerPrincipal principal) {
         log.info("Request to change personal information");
-        CustomerResponse customer = this.customerService.changePersonalInfo(request, principal.getId());
-        return ResponseEntity.ok(customer);
+        TrackerResponse tracker = this.trackerService.changePersonalInfo(request, principal.getTrackerId());
+        return ResponseEntity.ok(tracker);
     }
 
     @Operation(summary = "Изменение пароля",
@@ -80,9 +80,9 @@ public class CustomerController {
     @PreAuthorize("isAuthenticated()")
     @PutMapping("/me/change-password")
     public ResponseEntity<JwtToken> changePassword(@Valid @RequestBody ChangePasswordRequest request,
-                                                   @AuthenticationPrincipal CustomerPrincipal principal) {
+                                                   @AuthenticationPrincipal TrackerPrincipal principal) {
         log.info("Request to change password");
-        JwtToken jwtToken = this.customerService.changePassword(request, principal.getId());
+        JwtToken jwtToken = this.trackerService.changePassword(request, principal.getTrackerId());
         return ResponseEntity.ok(jwtToken);
     }
 
@@ -93,9 +93,9 @@ public class CustomerController {
     @PreAuthorize("isAuthenticated()")
     @PutMapping("/me/change-username")
     public ResponseEntity<JwtToken> changeUsername(@Valid @RequestBody ChangeUsernameRequest request,
-                                                   @AuthenticationPrincipal CustomerPrincipal principal) {
+                                                   @AuthenticationPrincipal TrackerPrincipal principal) {
         log.info("Request to change username");
-        JwtToken jwtToken = this.customerService.changeUsername(request, principal.getId());
+        JwtToken jwtToken = this.trackerService.changeUsername(request, principal.getTrackerId());
         return ResponseEntity.ok(jwtToken);
     }
 
@@ -104,9 +104,9 @@ public class CustomerController {
     @ApiResponse(responseCode = "404", description = "Клиент не найден")
     @PreAuthorize("isAuthenticated()")
     @DeleteMapping("/me")
-    public ResponseEntity<Void> deleteSelf(@AuthenticationPrincipal CustomerPrincipal principal) {
+    public ResponseEntity<Void> deleteSelf(@AuthenticationPrincipal TrackerPrincipal principal) {
         log.info("Request to delete self");
-        this.customerService.deleteById(principal.getId());
+        this.trackerService.deleteById(principal.getTrackerId());
         return ResponseEntity.noContent().build();
     }
 
@@ -114,10 +114,10 @@ public class CustomerController {
             description = "Удаляет аккаунт клиента по его идентификатору. Доступно только для администратора")
     @ApiResponse(responseCode = "404", description = "Клиент не найден")
     @PreAuthorize("hasRole('ROLE_ADMIN')")
-    @DeleteMapping("/{customerId}")
-    public ResponseEntity<Void> deleteCustomer(@PathVariable("customerId") UUID customerId) {
-        log.info("Request to delete customer");
-        this.customerService.deleteById(customerId);
+    @DeleteMapping("/{trackerId}")
+    public ResponseEntity<Void> deleteTracker(@PathVariable("trackerId") UUID trackerId) {
+        log.info("Request to delete tracker");
+        this.trackerService.deleteById(trackerId);
         return ResponseEntity.noContent().build();
     }
 

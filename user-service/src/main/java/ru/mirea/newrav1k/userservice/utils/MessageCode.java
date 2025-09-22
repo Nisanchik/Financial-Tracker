@@ -8,9 +8,9 @@ public class MessageCode {
 
     public static final String PASSWORD_MISMATCH = "error.password_mismatch";
 
-    public static final String CUSTOMER_NOT_FOUND = "error.customer_not_found";
+    public static final String TRACKER_NOT_FOUND = "error.tracker_not_found";
 
-    public static final String CUSTOMER_ALREADY_EXISTS = "error.customer_already_exists";
+    public static final String TRACKER_ALREADY_EXISTS = "error.tracker_already_exists";
 
     public static final String REGISTRATION_FAILED = "error.registration_failed";
 

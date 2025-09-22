@@ -52,7 +52,7 @@ public class AccountController {
     public PagedModel<AccountResponse> getAllAccounts(@AuthenticationPrincipal HeaderAuthenticationDetails authentication,
                                                       @PageableDefault Pageable pageable) {
         log.info("Request to get all accounts");
-        Page<AccountResponse> accounts = this.accountService.findAllAccountsByUserId(authentication.getUserId(), pageable);
+        Page<AccountResponse> accounts = this.accountService.findAllAccountsByTrackerId(authentication.getTrackerId(), pageable);
         return new PagedModel<>(accounts);
     }
 
@@ -64,7 +64,7 @@ public class AccountController {
     public ResponseEntity<AccountResponse> getAccount(@AuthenticationPrincipal HeaderAuthenticationDetails authentication,
                                                       @PathVariable("accountId") UUID accountId) {
         log.info("Request to get account: accountId={}", accountId);
-        AccountResponse account = this.accountService.findByUserIdAndAccountId(authentication.getUserId(), accountId);
+        AccountResponse account = this.accountService.findByTrackerIdAndAccountId(authentication.getTrackerId(), accountId);
         return ResponseEntity.ok(account);
     }
 
@@ -77,7 +77,7 @@ public class AccountController {
                                                          @Valid @RequestBody AccountCreateRequest request,
                                                          UriComponentsBuilder uriBuilder) {
         log.info("Request to create account: request={}", request);
-        AccountResponse account = this.accountService.create(request, authentication.getUserId());
+        AccountResponse account = this.accountService.create(request, authentication.getTrackerId());
         return ResponseEntity.created(uriBuilder
                         .replacePath("/api/account/{accountId}")
                         .build(account.id()))
@@ -96,7 +96,7 @@ public class AccountController {
                                                          @PathVariable("accountId") UUID accountId,
                                                          @Valid @RequestBody AccountUpdateRequest request) {
         log.info("Request to update account: accountId={}, request={}", accountId, request);
-        AccountResponse account = this.accountService.update(authentication.getUserId(), accountId, request);
+        AccountResponse account = this.accountService.update(authentication.getTrackerId(), accountId, request);
         return ResponseEntity.ok(account);
     }
 
@@ -112,7 +112,7 @@ public class AccountController {
                                                         @PathVariable("accountId") UUID accountId,
                                                         @RequestBody JsonNode jsonNode) {
         log.info("Request to patch account: accountId={}, jsonNode={}", accountId, jsonNode);
-        AccountResponse account = this.accountService.update(authentication.getUserId(), accountId, jsonNode);
+        AccountResponse account = this.accountService.update(authentication.getTrackerId(), accountId, jsonNode);
         return ResponseEntity.ok(account);
     }
 
@@ -122,7 +122,7 @@ public class AccountController {
     public ResponseEntity<Void> deleteAccount(@AuthenticationPrincipal HeaderAuthenticationDetails authentication,
                                               @PathVariable("accountId") UUID accountId) {
         log.info("Request to delete account: accountId={}", accountId);
-        this.accountService.deleteById(authentication.getUserId(), accountId);
+        this.accountService.deleteById(authentication.getTrackerId(), accountId);
         return ResponseEntity.noContent().build();
     }
 
@@ -141,7 +141,7 @@ public class AccountController {
                                                      @RequestParam("amount") BigDecimal amount,
                                                      @AuthenticationPrincipal HeaderAuthenticationDetails authentication) {
         log.info("Request to update account balance: accountId={}, transactionId={}", accountId, transactionId);
-        this.accountService.updateBalance(authentication.getUserId(), accountId, transactionId, amount);
+        this.accountService.updateBalance(authentication.getTrackerId(), accountId, transactionId, amount);
         return ResponseEntity.noContent().build();
     }
 
@@ -152,7 +152,7 @@ public class AccountController {
                                                        @RequestParam("amount") BigDecimal amount,
                                                        @AuthenticationPrincipal HeaderAuthenticationDetails authentication) {
         log.info("Request to withdraw account balance: accountId={}", accountId);
-        this.accountService.withdrawMoney(authentication.getUserId(), accountId, amount);
+        this.accountService.withdrawMoney(authentication.getTrackerId(), accountId, amount);
         return ResponseEntity.noContent().build();
     }
 
@@ -163,7 +163,7 @@ public class AccountController {
                                                       @RequestParam("amount") BigDecimal amount,
                                                       @AuthenticationPrincipal HeaderAuthenticationDetails authentication) {
         log.info("Request to deposit account balance: accountId={}", accountId);
-        this.accountService.depositMoney(authentication.getUserId(), accountId, amount);
+        this.accountService.depositMoney(authentication.getTrackerId(), accountId, amount);
         return ResponseEntity.noContent().build();
     }
 
@@ -178,7 +178,7 @@ public class AccountController {
     public ResponseEntity<Void> deactivateAccount(@PathVariable("accountId") UUID accountId,
                                                   @AuthenticationPrincipal HeaderAuthenticationDetails authentication) {
         log.info("Request to deactivate account: accountId={}", accountId);
-        this.accountService.deactivateAccount(authentication.getUserId(), accountId);
+        this.accountService.deactivateAccount(authentication.getTrackerId(), accountId);
         return ResponseEntity.noContent().build();
     }
 

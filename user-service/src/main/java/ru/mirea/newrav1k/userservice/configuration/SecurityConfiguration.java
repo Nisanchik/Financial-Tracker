@@ -16,7 +16,7 @@ import org.springframework.security.oauth2.jose.jws.SignatureAlgorithm;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.web.SecurityFilterChain;
-import ru.mirea.newrav1k.userservice.security.converter.CustomerJwtAuthenticationConverter;
+import ru.mirea.newrav1k.userservice.security.converter.TrackerJwtAuthenticationConverter;
 import ru.mirea.newrav1k.userservice.security.handler.YandexAuthenticationSuccessHandler;
 import ru.mirea.newrav1k.userservice.service.YandexAuthenticationService;
 
@@ -34,7 +34,7 @@ public class SecurityConfiguration {
     public SecurityFilterChain securityFilterChain(HttpSecurity http, JwtDecoder jwtDecoder,
                                                    YandexAuthenticationService yandexAuthenticationService,
                                                    YandexAuthenticationSuccessHandler yandexAuthenticationSuccessHandler,
-                                                   CustomerJwtAuthenticationConverter customerJwtAuthenticationConverter)
+                                                   TrackerJwtAuthenticationConverter trackerJwtAuthenticationConverter)
             throws Exception {
         http
                 .csrf(AbstractHttpConfigurer::disable)
@@ -53,7 +53,7 @@ public class SecurityConfiguration {
                 .oauth2ResourceServer(serverConfigurer ->
                         serverConfigurer.jwt(jwtConfigurer -> {
                             jwtConfigurer.decoder(jwtDecoder);
-                            jwtConfigurer.jwtAuthenticationConverter(customerJwtAuthenticationConverter);
+                            jwtConfigurer.jwtAuthenticationConverter(trackerJwtAuthenticationConverter);
                         }))
                 .sessionManagement(session ->
                         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS));

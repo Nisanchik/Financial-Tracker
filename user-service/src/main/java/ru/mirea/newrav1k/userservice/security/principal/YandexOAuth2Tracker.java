@@ -14,9 +14,9 @@ import java.util.UUID;
 
 @Getter
 @Setter
-public class YandexCustomer implements OAuth2User {
+public class YandexOAuth2Tracker implements OAuth2User {
 
-    private UUID customerId;
+    private UUID trackerId;
 
     private String username;
 

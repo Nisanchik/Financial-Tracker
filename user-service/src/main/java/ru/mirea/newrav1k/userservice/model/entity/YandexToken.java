@@ -20,16 +20,17 @@ import java.util.UUID;
 @Entity
 @Table(
         name = "t_yandex_tokens",
-        schema = "customer_management",
+        schema = "tracker_management",
         indexes = {
-                @Index(name = "idx_yandex_token_user_ids", columnList = "customerId")
+                @Index(name = "idx_yandex_token_tracker_ids", columnList = "trackerId")
         }
 )
 public class YandexToken {
 
     @Id
     @JsonIgnore
-    private UUID customerId;
+    @Column(name = "tracker_id", nullable = false)
+    private UUID trackerId;
 
     @Column(name = "access_token", nullable = false)
     private String accessToken;

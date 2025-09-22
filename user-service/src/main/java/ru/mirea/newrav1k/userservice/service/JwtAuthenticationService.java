@@ -16,10 +16,9 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import ru.mirea.newrav1k.userservice.exception.RSAKeyLoadException;
-import ru.mirea.newrav1k.userservice.model.entity.Customer;
-import ru.mirea.newrav1k.userservice.model.entity.RefreshTokenEntity;
+import ru.mirea.newrav1k.userservice.model.entity.Tracker;
 import ru.mirea.newrav1k.userservice.model.enums.Authority;
-import ru.mirea.newrav1k.userservice.repository.RefreshTokenEntityRepository;
+import ru.mirea.newrav1k.userservice.repository.RefreshTokenRepository;
 import ru.mirea.newrav1k.userservice.security.token.AccessToken;
 import ru.mirea.newrav1k.userservice.security.token.RefreshToken;
 import ru.mirea.newrav1k.userservice.utils.KeyUtils;
@@ -41,7 +40,7 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class JwtAuthenticationService {
 
-    private final RefreshTokenEntityRepository refreshTokenEntityRepository;
+    private final RefreshTokenRepository refreshTokenRepository;
 
     @Value("${user-service.jwt.access-token.expiry}")
     private Duration accessTokenExpiration;
@@ -80,13 +79,13 @@ public class JwtAuthenticationService {
         }
     }
 
-    public AccessToken generateAccessToken(Customer customer) {
-        log.debug("Generating access token for user {}", customer.getId());
+    public AccessToken generateAccessToken(Tracker tracker) {
+        log.debug("Generating access token for user {}", tracker.getId());
         Instant now = Instant.now();
         String accessToken = Jwts.builder()
-                .subject(customer.getId().toString())
-                .claim("username", customer.getUsername())
-                .claim("authorities", customer.getAuthorities().stream()
+                .subject(tracker.getId().toString())
+                .claim("username", tracker.getUsername())
+                .claim("authorities", tracker.getAuthorities().stream()
                         .map(Authority::name)
                         .map(SimpleGrantedAuthority::new)
                         .map(SimpleGrantedAuthority::getAuthority)
@@ -99,11 +98,11 @@ public class JwtAuthenticationService {
         return new AccessToken(accessToken, now.plus(this.accessTokenExpiration));
     }
 
-    public AccessToken generateAccessToken(UUID userId, String username) {
-        log.debug("Generating access token for user {} with username {}", userId, username);
+    public AccessToken generateAccessToken(UUID trackerId, String username) {
+        log.debug("Generating access token for user {} with username {}", trackerId, username);
         Instant now = Instant.now();
         String accessToken = Jwts.builder()
-                .subject(userId.toString())
+                .subject(trackerId.toString())
                 .claim("username", username)
                 .claim("authorities", "ROLE_USER")
                 .issuedAt(Date.from(now))
@@ -115,19 +114,20 @@ public class JwtAuthenticationService {
     }
 
     @Transactional
-    public RefreshToken generateRefreshToken(UUID userId) {
-        log.debug("Generating refresh token for user {}", userId);
+    public RefreshToken generateRefreshToken(UUID trackerId) {
+        log.debug("Generating refresh token for user {}", trackerId);
         Instant now = Instant.now();
 
         String uuidToken = UUID.randomUUID().toString();
 
-        RefreshTokenEntity refreshTokenEntity = new RefreshTokenEntity();
-        refreshTokenEntity.setCustomerId(userId);
+        ru.mirea.newrav1k.userservice.model.entity.RefreshToken refreshTokenEntity =
+                new ru.mirea.newrav1k.userservice.model.entity.RefreshToken();
+        refreshTokenEntity.setTrackerId(trackerId);
         refreshTokenEntity.setToken(uuidToken);
         refreshTokenEntity.setCreatedAt(now);
         refreshTokenEntity.setExpiresAt(now.plus(this.refreshTokenExpiration));
 
-        this.refreshTokenEntityRepository.save(refreshTokenEntity);
+        this.refreshTokenRepository.save(refreshTokenEntity);
 
         return new RefreshToken(uuidToken, refreshTokenEntity.getExpiresAt());
     }
@@ -177,12 +177,12 @@ public class JwtAuthenticationService {
 
     @Transactional
     public void invalidateRefreshToken(String token) {
-        this.refreshTokenEntityRepository.deleteByToken(token);
+        this.refreshTokenRepository.deleteByToken(token);
     }
 
     @Transactional
-    public void invalidateRefreshTokens(UUID customerId) {
-        this.refreshTokenEntityRepository.deleteAllByCustomerId(customerId);
+    public void invalidateRefreshTokens(UUID trackerId) {
+        this.refreshTokenRepository.deleteAllByTrackerId(trackerId);
     }
 
     public boolean validateToken(String token) {

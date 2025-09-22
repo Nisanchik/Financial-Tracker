@@ -10,11 +10,11 @@ import org.springframework.security.oauth2.core.OAuth2RefreshToken;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import ru.mirea.newrav1k.userservice.model.entity.Customer;
+import ru.mirea.newrav1k.userservice.model.entity.Tracker;
 import ru.mirea.newrav1k.userservice.model.entity.YandexToken;
-import ru.mirea.newrav1k.userservice.repository.CustomerRepository;
+import ru.mirea.newrav1k.userservice.repository.TrackerRepository;
 import ru.mirea.newrav1k.userservice.repository.YandexTokenRepository;
-import ru.mirea.newrav1k.userservice.security.principal.YandexCustomer;
+import ru.mirea.newrav1k.userservice.security.principal.YandexOAuth2Tracker;
 
 import java.util.Map;
 import java.util.UUID;
@@ -25,7 +25,7 @@ import java.util.UUID;
 @Transactional(readOnly = true)
 public class YandexAuthenticationService extends DefaultOAuth2UserService {
 
-    private final CustomerRepository customerRepository;
+    private final TrackerRepository trackerRepository;
 
     private final YandexTokenRepository yandexTokenRepository;
 
@@ -39,21 +39,21 @@ public class YandexAuthenticationService extends DefaultOAuth2UserService {
         String firstname = attributes.get("first_name").toString();
         String lastname = attributes.get("last_name").toString();
 
-        Customer customer = this.customerRepository.findByUsername(username)
-                .map(existingCustomer -> {
-                    existingCustomer.setFirstname(firstname);
-                    existingCustomer.setLastname(lastname);
-                    return this.customerRepository.save(existingCustomer);
+        Tracker tracker = this.trackerRepository.findByUsername(username)
+                .map(existingTracker -> {
+                    existingTracker.setFirstname(firstname);
+                    existingTracker.setLastname(lastname);
+                    return this.trackerRepository.save(existingTracker);
                 })
-                .orElseGet(() -> buildCustomer(username, firstname, lastname));
+                .orElseGet(() -> buildTracker(username, firstname, lastname));
 
-        return buildYandexCustomer(customer, attributes);
+        return buildYandexTracker(tracker, attributes);
     }
 
     @Transactional
-    public YandexToken buildYandexToken(UUID userId, OAuth2AccessToken accessToken, OAuth2RefreshToken refreshToken) {
+    public YandexToken buildYandexToken(UUID trackerId, OAuth2AccessToken accessToken, OAuth2RefreshToken refreshToken) {
         YandexToken yandexToken = new YandexToken();
-        yandexToken.setCustomerId(userId);
+        yandexToken.setTrackerId(trackerId);
         yandexToken.setAccessToken(accessToken.getTokenValue());
         if (refreshToken != null) {
             yandexToken.setRefreshToken(refreshToken.getTokenValue());
@@ -61,23 +61,23 @@ public class YandexAuthenticationService extends DefaultOAuth2UserService {
         return this.yandexTokenRepository.save(yandexToken);
     }
 
-    private Customer buildCustomer(String username, String firstname, String lastname) {
-        Customer customer = new Customer();
-        customer.setUsername(username);
-        customer.setFirstname(firstname);
-        customer.setLastname(lastname);
-        customer.setPassword(UUID.randomUUID().toString());
-        return this.customerRepository.save(customer);
+    private Tracker buildTracker(String username, String firstname, String lastname) {
+        Tracker tracker = new Tracker();
+        tracker.setUsername(username);
+        tracker.setFirstname(firstname);
+        tracker.setLastname(lastname);
+        tracker.setPassword(UUID.randomUUID().toString());
+        return this.trackerRepository.save(tracker);
     }
 
-    private YandexCustomer buildYandexCustomer(Customer customer, Map<String, Object> attributes) {
-        YandexCustomer yandexCustomer = new YandexCustomer();
-        yandexCustomer.setCustomerId(customer.getId());
-        yandexCustomer.setUsername(customer.getUsername());
-        yandexCustomer.setFirstname(customer.getFirstname());
-        yandexCustomer.setLastname(customer.getLastname());
-        yandexCustomer.setAttributes(attributes);
-        return yandexCustomer;
+    private YandexOAuth2Tracker buildYandexTracker(Tracker tracker, Map<String, Object> attributes) {
+        YandexOAuth2Tracker yandexOAuth2Tracker = new YandexOAuth2Tracker();
+        yandexOAuth2Tracker.setTrackerId(tracker.getId());
+        yandexOAuth2Tracker.setUsername(tracker.getUsername());
+        yandexOAuth2Tracker.setFirstname(tracker.getFirstname());
+        yandexOAuth2Tracker.setLastname(tracker.getLastname());
+        yandexOAuth2Tracker.setAttributes(attributes);
+        return yandexOAuth2Tracker;
     }
 
 }

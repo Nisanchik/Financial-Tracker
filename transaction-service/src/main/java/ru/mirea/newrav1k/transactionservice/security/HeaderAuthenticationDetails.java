@@ -12,7 +12,7 @@ import java.util.UUID;
 @AllArgsConstructor
 public class HeaderAuthenticationDetails implements UserDetails {
 
-    private UUID userId;
+    private UUID trackerId;
 
     private List<GrantedAuthority> authorities;
 

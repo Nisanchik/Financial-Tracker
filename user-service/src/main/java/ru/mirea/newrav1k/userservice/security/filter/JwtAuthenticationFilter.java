@@ -13,7 +13,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
-import ru.mirea.newrav1k.userservice.security.principal.CustomerPrincipal;
+import ru.mirea.newrav1k.userservice.security.principal.TrackerPrincipal;
 import ru.mirea.newrav1k.userservice.service.JwtAuthenticationService;
 
 import java.io.IOException;
@@ -43,7 +43,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 try {
                     String subject = this.jwtAuthenticationService.getSubjectFromToken(token);
                     List<GrantedAuthority> authorities = this.jwtAuthenticationService.getAuthoritiesFromToken(token);
-                    CustomerPrincipal principal = new CustomerPrincipal(UUID.fromString(subject), authorities);
+                    TrackerPrincipal principal = new TrackerPrincipal(UUID.fromString(subject), authorities);
                     UsernamePasswordAuthenticationToken usernamePasswordAuthenticationToken =
                             new UsernamePasswordAuthenticationToken(principal, null, authorities);
                     usernamePasswordAuthenticationToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));

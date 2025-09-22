@@ -6,7 +6,7 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Component;
-import ru.mirea.newrav1k.userservice.security.principal.CustomerPrincipal;
+import ru.mirea.newrav1k.userservice.security.principal.TrackerPrincipal;
 
 import java.util.Collections;
 import java.util.List;
@@ -15,7 +15,7 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Component
-public class CustomerJwtAuthenticationConverter implements Converter<Jwt, AbstractAuthenticationToken> {
+public class TrackerJwtAuthenticationConverter implements Converter<Jwt, AbstractAuthenticationToken> {
 
     @Override
     public AbstractAuthenticationToken convert(Jwt source) {
@@ -23,7 +23,7 @@ public class CustomerJwtAuthenticationConverter implements Converter<Jwt, Abstra
         List<String> authorities =
                 Objects.requireNonNullElse(source.getClaimAsStringList("authorities"), Collections.emptyList());
 
-        CustomerPrincipal principal = new CustomerPrincipal(subject, authorities.stream()
+        TrackerPrincipal principal = new TrackerPrincipal(subject, authorities.stream()
                 .map(SimpleGrantedAuthority::new)
                 .collect(Collectors.toList()));
 

@@ -58,10 +58,10 @@ public class AccountService {
                 .map(this.accountMapper::toAccountResponse);
     }
 
-    @Cacheable(value = "account-pages", key = "#userId", keyGenerator = "pageableKeyGenerator")
-    public Page<AccountResponse> findAllAccountsByUserId(UUID userId, Pageable pageable) {
-        log.debug("Finding all user accounts");
-        return this.accountRepository.findAllByUserId(userId, pageable)
+    @Cacheable(value = "account-pages", key = "#trackerId", keyGenerator = "pageableKeyGenerator")
+    public Page<AccountResponse> findAllAccountsByTrackerId(UUID trackerId, Pageable pageable) {
+        log.debug("Finding all tracker accounts");
+        return this.accountRepository.findAllByTrackerId(trackerId, pageable)
                 .map(this.accountMapper::toAccountResponse);
     }
 
@@ -74,32 +74,32 @@ public class AccountService {
                 .orElseThrow(AccountNotFoundException::new);
     }
 
-    @Cacheable(value = "account-details", key = "#userId + '-' + #accountId")
-    public AccountResponse findByUserIdAndAccountId(UUID userId, UUID accountId) {
-        log.debug("Finding account: userId={}, accountId={}", userId, accountId);
-        return this.accountRepository.findAccountByUserIdAndId(userId, accountId)
+    @Cacheable(value = "account-details", key = "#trackerId + '-' + #accountId")
+    public AccountResponse findByTrackerIdAndAccountId(UUID trackerId, UUID accountId) {
+        log.debug("Finding account: trackerId={}, accountId={}", trackerId, accountId);
+        return this.accountRepository.findAccountByTrackerIdAndId(trackerId, accountId)
                 .map(this.accountMapper::toAccountResponse)
                 .orElseThrow(AccountAccessDeniedException::new);
     }
 
     @PreAuthorize("isAuthenticated()")
     @Transactional
-    public AccountResponse create(AccountCreateRequest request, UUID userId) {
-        log.debug("Creating account: request={}, userId={}", request, userId);
-        Account account = buildAccountFromRequestAndUserId(request, userId);
+    public AccountResponse create(AccountCreateRequest request, UUID trackerId) {
+        log.debug("Creating account: request={}, trackerId={}", request, trackerId);
+        Account account = buildAccountFromRequestAndTrackerId(request, trackerId);
         this.accountRepository.save(account);
         return this.accountMapper.toAccountResponse(account);
     }
 
     @PreAuthorize("isAuthenticated()")
     @Caching(evict = {
-            @CacheEvict(value = "account-details", key = "#userId + '-' + #accountId"),
+            @CacheEvict(value = "account-details", key = "#trackerId + '-' + #accountId"),
             @CacheEvict(value = "account-pages", allEntries = true)
     })
     @Transactional
-    public AccountResponse update(UUID userId, UUID accountId, AccountUpdateRequest request) {
-        log.debug("Update account: userId={}, accountId={}, request={}", userId, accountId, request);
-        return this.accountRepository.findAccountByUserIdAndId(userId, accountId)
+    public AccountResponse update(UUID trackerId, UUID accountId, AccountUpdateRequest request) {
+        log.debug("Update account: trackerId={}, accountId={}, request={}", trackerId, accountId, request);
+        return this.accountRepository.findAccountByTrackerIdAndId(trackerId, accountId)
                 .map(account -> {
                     account.setName(request.name());
                     if (request.currency() != null) {
@@ -114,13 +114,13 @@ public class AccountService {
 
     @PreAuthorize("isAuthenticated()")
     @Caching(evict = {
-            @CacheEvict(value = "account-details", key = "#userId + '-' + #accountId"),
+            @CacheEvict(value = "account-details", key = "#trackerId + '-' + #accountId"),
             @CacheEvict(value = "account-pages", allEntries = true)
     })
     @Transactional
-    public AccountResponse update(UUID userId, UUID accountId, JsonNode jsonNode) {
-        log.debug("Update account: userId={}, accountId={}, jsonNode={}", userId, accountId, jsonNode);
-        Account account = findAccountByUserIdAndIdOrThrow(userId, accountId);
+    public AccountResponse update(UUID trackerId, UUID accountId, JsonNode jsonNode) {
+        log.debug("Update account: trackerId={}, accountId={}, jsonNode={}", trackerId, accountId, jsonNode);
+        Account account = findAccountByTrackerIdAndIdOrThrow(trackerId, accountId);
         try {
             if (jsonNode.has("name")) {
                 account.setName(jsonNode.get("name").asText());
@@ -141,18 +141,18 @@ public class AccountService {
 
     @PreAuthorize("isAuthenticated()")
     @Caching(evict = {
-            @CacheEvict(value = "account-details", key = "#userId + '-' + #accountId"),
+            @CacheEvict(value = "account-details", key = "#trackerId + '-' + #accountId"),
             @CacheEvict(value = "account-pages", allEntries = true)
     })
     @Transactional
-    public void deleteById(UUID userId, UUID accountId) {
-        log.debug("Deleting account: userId={}, accountId={}", userId, accountId);
-        this.accountRepository.deleteAccountByUserIdAndId(userId, accountId);
+    public void deleteById(UUID trackerId, UUID accountId) {
+        log.debug("Deleting account: trackerId={}, accountId={}", trackerId, accountId);
+        this.accountRepository.deleteAccountByTrackerIdAndId(trackerId, accountId);
     }
 
     @PreAuthorize("isAuthenticated()")
     @Caching(evict = {
-            @CacheEvict(value = "account-details", key = "#userId + '-' + #accountId"),
+            @CacheEvict(value = "account-details", key = "#trackerId + '-' + #accountId"),
             @CacheEvict(value = "account-pages", allEntries = true)
     })
     @Retryable(
@@ -164,14 +164,14 @@ public class AccountService {
             maxAttempts = 5
     )
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public void updateBalance(UUID userId, UUID accountId, UUID transactionId, BigDecimal amount) {
-        log.debug("Update account balance: userId={}, accountId={}, transactionId={}", userId, accountId, transactionId);
+    public void updateBalance(UUID trackerId, UUID accountId, UUID transactionId, BigDecimal amount) {
+        log.debug("Update account balance: trackerId={}, accountId={}, transactionId={}", trackerId, accountId, transactionId);
         if (this.bankOperationRepository.existsByTransactionId(transactionId)) {
             log.warn("Account was updated from transaction with id {}", transactionId);
             return;
         }
         this.bankOperationRepository.save(new BankOperation(transactionId, accountId, amount));
-        Account account = this.accountRepository.findAccountByUserIdAndIdForPessimisticLock(userId, accountId)
+        Account account = this.accountRepository.findAccountByTrackerIdAndIdForPessimisticLock(trackerId, accountId)
                 .orElseThrow(AccountAccessDeniedException::new);
         validateAccountActive(account);
         if (amount.signum() < 0) {
@@ -185,45 +185,45 @@ public class AccountService {
     @Deprecated(forRemoval = true)
     @PreAuthorize("isAuthenticated()")
     @Caching(evict = {
-            @CacheEvict(value = "account-details", key = "#userId + '-' + #accountId"),
+            @CacheEvict(value = "account-details", key = "#trackerId + '-' + #accountId"),
             @CacheEvict(value = "account-pages", allEntries = true)
     })
     @Transactional
-    public void depositMoney(UUID userId, UUID accountId, BigDecimal amount) {
+    public void depositMoney(UUID trackerId, UUID accountId, BigDecimal amount) {
         log.debug("Deposit money: accountId={}, amount={}", accountId, amount);
-        Account account = findAccountByUserIdAndIdOrThrow(userId, accountId);
+        Account account = findAccountByTrackerIdAndIdOrThrow(trackerId, accountId);
         account.deposit(amount);
     }
 
     @Deprecated(forRemoval = true)
     @PreAuthorize("isAuthenticated()")
     @Caching(evict = {
-            @CacheEvict(value = "account-details", key = "#userId + '-' + #accountId"),
+            @CacheEvict(value = "account-details", key = "#trackerId + '-' + #accountId"),
             @CacheEvict(value = "account-pages", allEntries = true)
     })
     @Transactional
-    public void withdrawMoney(UUID userId, UUID accountId, BigDecimal amount) {
+    public void withdrawMoney(UUID trackerId, UUID accountId, BigDecimal amount) {
         log.debug("Withdraw money: accountId={}, amount={}", accountId, amount);
-        Account account = findAccountByUserIdAndIdOrThrow(userId, accountId);
+        Account account = findAccountByTrackerIdAndIdOrThrow(trackerId, accountId);
         account.withdraw(amount);
     }
 
     @PreAuthorize("isAuthenticated()")
     @Caching(evict = {
-            @CacheEvict(value = "account-details", key = "#userId + '-' + #accountId"),
+            @CacheEvict(value = "account-details", key = "#trackerId + '-' + #accountId"),
             @CacheEvict(value = "account-pages", allEntries = true)
     })
     @Transactional
-    public void deactivateAccount(UUID userId, UUID accountId) {
-        log.debug("Deactivate account: userId={}, accountId={}", userId, accountId);
-        Account account = findAccountByUserIdAndIdOrThrow(userId, accountId);
+    public void deactivateAccount(UUID trackerId, UUID accountId) {
+        log.debug("Deactivate account: trackerId={}, accountId={}", trackerId, accountId);
+        Account account = findAccountByTrackerIdAndIdOrThrow(trackerId, accountId);
         account.deactivate();
     }
 
-    private Account buildAccountFromRequestAndUserId(AccountCreateRequest request, UUID userId) {
+    private Account buildAccountFromRequestAndTrackerId(AccountCreateRequest request, UUID trackerId) {
         Account account = new Account();
 
-        account.setUserId(userId);
+        account.setTrackerId(trackerId);
         account.setName(request.name());
         account.setCurrency(request.currency());
         account.setType(request.type());
@@ -234,8 +234,8 @@ public class AccountService {
         return account;
     }
 
-    private Account findAccountByUserIdAndIdOrThrow(UUID userId, UUID accountId) {
-        return this.accountRepository.findAccountByUserIdAndId(userId, accountId)
+    private Account findAccountByTrackerIdAndIdOrThrow(UUID trackerId, UUID accountId) {
+        return this.accountRepository.findAccountByTrackerIdAndId(trackerId, accountId)
                 .orElseThrow(AccountAccessDeniedException::new);
     }
 
@@ -248,9 +248,9 @@ public class AccountService {
 
     @Recover
     private void updateBalanceRecover(ObjectOptimisticLockingFailureException ex,
-                                     UUID userId, UUID accountId, UUID transactionId, BigDecimal amount) {
+                                      UUID trackerId, UUID accountId, UUID transactionId, BigDecimal amount) {
         log.error("Error while update balance: " +
-                "userId={}, accountId={}, transactionId={}, amount={}", userId, accountId, transactionId, amount, ex);
+                "trackerId={}, accountId={}, transactionId={}, amount={}", trackerId, accountId, transactionId, amount, ex);
         throw new AccountBalanceException(MessageCode.UPDATE_BALANCE_FAILED);
     }
 

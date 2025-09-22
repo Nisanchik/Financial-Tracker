@@ -51,26 +51,26 @@ public class TransactionService {
     }
 
     @PreAuthorize("isAuthenticated()")
-    public Page<TransactionResponse> findAllByUserId(UUID userId, TransactionFilter filter, Pageable pageable) {
-        log.debug("Finding all transactions: userId={}, filter={}", userId, filter);
+    public Page<TransactionResponse> findAllByTrackerId(UUID trackerId, TransactionFilter filter, Pageable pageable) {
+        log.debug("Finding all transactions: trackerId={}, filter={}", trackerId, filter);
         Specification<Transaction> specification = this.transactionRepository.buildTransactionSpecification(filter);
-        return this.transactionRepository.findAllByUserId(userId, specification, pageable)
+        return this.transactionRepository.findAllByTrackerId(trackerId, specification, pageable)
                 .map(this.transactionMapper::toTransactionResponse);
     }
 
     @PreAuthorize("hasRole('ADMIN')")
-    public TransactionResponse findById(UUID userId, UUID transactionId) {
+    public TransactionResponse findById(UUID trackerId, UUID transactionId) {
         log.debug("Request to get transaction by id {}", transactionId);
-        return this.transactionRepository.findTransactionByUserIdAndId(userId, transactionId)
+        return this.transactionRepository.findTransactionByTrackerIdAndId(trackerId, transactionId)
                 .map(this.transactionMapper::toTransactionResponse)
                 .orElseThrow(TransactionAccessDeniedException::new);
     }
 
     @PreAuthorize("isAuthenticated()")
     @Transactional
-    public TransactionResponse create(UUID userId, TransactionCreateRequest request) {
+    public TransactionResponse create(UUID trackerId, TransactionCreateRequest request) {
         log.debug("Request to create a new transaction");
-        Transaction transaction = savePendingTransaction(userId, request);
+        Transaction transaction = savePendingTransaction(trackerId, request);
 
         this.transactionEventPublisher.publishInternalTransactionCreatedEvent(
                 transaction.getId(),
@@ -84,9 +84,9 @@ public class TransactionService {
 
     @PreAuthorize("isAuthenticated()")
     @Transactional
-    public TransactionResponse updateById(UUID userId, UUID transactionId, TransactionUpdateRequest request) {
+    public TransactionResponse updateById(UUID trackerId, UUID transactionId, TransactionUpdateRequest request) {
         log.debug("Request to update transaction by id {} and request {}", transactionId, request);
-        return this.transactionRepository.findTransactionByUserIdAndId(userId, transactionId)
+        return this.transactionRepository.findTransactionByTrackerIdAndId(trackerId, transactionId)
                 .map(transaction -> {
                     if (request.description() != null) {
                         transaction.setDescription(request.description());
@@ -113,9 +113,9 @@ public class TransactionService {
 
     @PreAuthorize("isAuthenticated()")
     @Transactional
-    public TransactionResponse updateById(UUID userId, UUID transactionId, JsonNode jsonNode) {
+    public TransactionResponse updateById(UUID trackerId, UUID transactionId, JsonNode jsonNode) {
         log.debug("Request to update transaction by id {} and jsonNode {}", transactionId, jsonNode);
-        Transaction transaction = this.transactionRepository.findTransactionByUserIdAndId(userId, transactionId)
+        Transaction transaction = this.transactionRepository.findTransactionByTrackerIdAndId(trackerId, transactionId)
                 .orElseThrow(TransactionAccessDeniedException::new);
         try {
             if (jsonNode.has("description")) {
@@ -145,9 +145,9 @@ public class TransactionService {
 
     @PreAuthorize("isAuthenticated() or hasRole('ADMIN')")
     @Transactional
-    public void deleteById(UUID userId, UUID transactionId) {
+    public void deleteById(UUID trackerId, UUID transactionId) {
         log.debug("Request to delete transaction by id {}", transactionId);
-        Transaction transaction = this.transactionRepository.findTransactionByUserIdAndId(userId, transactionId)
+        Transaction transaction = this.transactionRepository.findTransactionByTrackerIdAndId(trackerId, transactionId)
                 .orElseThrow(TransactionAccessDeniedException::new);
         if (transaction.getStatus() == TransactionStatus.COMPLETED) {
             try {
@@ -174,16 +174,16 @@ public class TransactionService {
         this.transactionRepository.save(transaction);
     }
 
-    private Transaction savePendingTransaction(UUID userId, TransactionCreateRequest request) {
-        Transaction transaction = buildTransactionFromRequest(userId, request);
+    private Transaction savePendingTransaction(UUID trackerId, TransactionCreateRequest request) {
+        Transaction transaction = buildTransactionFromRequest(trackerId, request);
         transaction.setStatus(TransactionStatus.PENDING);
         return this.transactionRepository.save(transaction);
     }
 
-    private Transaction buildTransactionFromRequest(UUID userId, TransactionCreateRequest request) {
+    private Transaction buildTransactionFromRequest(UUID trackerId, TransactionCreateRequest request) {
         Transaction transaction = new Transaction();
 
-        transaction.setUserId(userId);
+        transaction.setTrackerId(trackerId);
         transaction.setAmount(request.amount());
         transaction.setAccountId(request.accountId());
         transaction.setDescription(request.description());

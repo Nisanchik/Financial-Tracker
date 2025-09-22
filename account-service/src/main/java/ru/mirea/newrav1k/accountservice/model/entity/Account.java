@@ -31,13 +31,13 @@ import static ru.mirea.newrav1k.accountservice.utils.MessageCode.INVALID_AMOUNT;
         schema = "account_management",
         indexes = {
                 @Index(name = "idx_account_ids", columnList = "id"),
-                @Index(name = "idx_account_user_ids", columnList = "userId")
+                @Index(name = "idx_account_tracker_ids", columnList = "trackerId")
         }
 )
 public class Account extends BaseEntity {
 
-    @Column(name = "user_id", nullable = false)
-    private UUID userId;
+    @Column(name = "tracker_id", nullable = false)
+    private UUID trackerId;
 
     @Column(name = "name", nullable = false)
     private String name;

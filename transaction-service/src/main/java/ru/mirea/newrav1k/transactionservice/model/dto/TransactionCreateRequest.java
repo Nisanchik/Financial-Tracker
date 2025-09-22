@@ -11,9 +11,6 @@ import java.util.List;
 import java.util.UUID;
 
 public record TransactionCreateRequest(
-        @NotNull(message = "transaction.user.id.null")
-        UUID userId,
-
         @NotNull(message = "transaction.amount.null")
         @Digits(integer = 10, fraction = 2, message = "transaction.amount.digits")
         @Positive(message = "transaction.amount.positive")

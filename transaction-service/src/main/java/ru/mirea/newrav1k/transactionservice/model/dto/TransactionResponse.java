@@ -8,7 +8,7 @@ import java.util.UUID;
 
 public record TransactionResponse(
         UUID id,
-        UUID userId,
+        UUID trackerId,
         BigDecimal amount,
         TransactionType type,
         UUID categoryId,

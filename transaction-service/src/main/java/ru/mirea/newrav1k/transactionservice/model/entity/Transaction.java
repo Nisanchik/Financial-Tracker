@@ -31,19 +31,20 @@ import java.util.UUID;
         schema = "transaction_management",
         indexes = {
                 @Index(name = "idx_transaction_ids", columnList = "id"),
-                @Index(name = "idx_transaction_user_ids", columnList = "userId"),
+                @Index(name = "idx_transaction_tracker_ids", columnList = "trackerId"),
                 @Index(name = "idx_transaction_statuses", columnList = "status")
         }
 )
 public class Transaction extends BaseEntity {
 
-    @Column(name = "user_id", nullable = false)
-    private UUID userId;
+    @Column(name = "tracker_id", nullable = false)
+    private UUID trackerId;
 
     @Column(name = "amount", scale = 2, precision = 19, nullable = false)
     private BigDecimal amount;
 
     @Enumerated(EnumType.STRING)
+    @Column(name = "type", nullable = false)
     private TransactionType type;
 
     @Column(name = "category_id", nullable = false)
@@ -64,6 +65,7 @@ public class Transaction extends BaseEntity {
     private List<String> tags = new ArrayList<>();
 
     @Enumerated(EnumType.STRING)
+    @Column(name = "status", nullable = false)
     private TransactionStatus status;
 
 }

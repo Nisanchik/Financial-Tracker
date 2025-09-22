@@ -21,16 +21,16 @@ import java.util.UUID;
 @Entity
 @Table(
         name = "t_refresh_tokens",
-        schema = "customer_management"
+        schema = "tracker_management"
 )
-public class RefreshTokenEntity {
+public class RefreshToken {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
-    @Column(name = "customer_id", nullable = false)
-    private UUID customerId;
+    @Column(name = "tracker_id", nullable = false)
+    private UUID trackerId;
 
     @Column(name = "token", nullable = false, unique = true)
     private String token;

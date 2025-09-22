@@ -11,9 +11,9 @@ import java.util.UUID;
 
 @Getter
 @RequiredArgsConstructor
-public class CustomerPrincipal implements UserDetails {
+public class TrackerPrincipal implements UserDetails {
 
-    private final UUID id;
+    private final UUID trackerId;
 
     private final List<GrantedAuthority> authorities;
 

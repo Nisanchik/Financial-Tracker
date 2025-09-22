@@ -19,8 +19,8 @@ public class JwtAuthenticationFilter extends AbstractGatewayFilterFactory<Object
                 .map(JwtAuthenticationToken::getToken)
                 .map(jwt -> {
                     ServerHttpRequest mutatedRequest = exchange.getRequest().mutate()
-                            .header("X-User-Id", jwt.getSubject())
-                            .header("X-User-Authorities", String.join(",",
+                            .header("X-Tracker-Id", jwt.getSubject())
+                            .header("X-Tracker-Authorities", String.join(",",
                                     jwt.getClaimAsStringList("authorities")))
                             .build();
                     return exchange.mutate().request(mutatedRequest).build();

@@ -15,9 +15,9 @@ import java.util.UUID;
 @Repository
 public interface TransactionRepository extends JpaRepository<Transaction, UUID>, JpaSpecificationExecutor<Transaction> {
 
-    Page<Transaction> findAllByUserId(UUID userId, Specification<Transaction> specification, Pageable pageable);
+    Page<Transaction> findAllByTrackerId(UUID trackerId, Specification<Transaction> specification, Pageable pageable);
 
-    Optional<Transaction> findTransactionByUserIdAndId(UUID userId, UUID transactionId);
+    Optional<Transaction> findTransactionByTrackerIdAndId(UUID trackerId, UUID transactionId);
 
     default Specification<Transaction> buildTransactionSpecification(TransactionFilter filter) {
         Specification<Transaction> specification = (root, query, criteriaBuilder) -> criteriaBuilder.conjunction();
