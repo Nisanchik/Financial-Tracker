@@ -19,8 +19,8 @@ import org.springframework.web.bind.annotation.RestController;
 import ru.mirea.newrav1k.userservice.model.dto.LoginRequest;
 import ru.mirea.newrav1k.userservice.model.dto.RegistrationRequest;
 import ru.mirea.newrav1k.userservice.security.token.JwtToken;
-import ru.mirea.newrav1k.userservice.service.TrackerService;
 import ru.mirea.newrav1k.userservice.service.JwtAuthenticationService;
+import ru.mirea.newrav1k.userservice.service.TrackerService;
 
 import java.time.Duration;
 import java.util.Map;
@@ -37,10 +37,10 @@ public class AuthenticationController {
 
     private final TrackerService trackerService;
 
-    @Operation(summary = "Регистрация клиента",
-            description = "Регистрирует клиента и выдаёт ему jwt токен")
+    @Operation(summary = "Регистрация пользователя",
+            description = "Регистрирует пользователя и выдаёт ему jwt токен")
     @ApiResponses(value = {@ApiResponse(responseCode = "400", description = "Некорректные данные"),
-            @ApiResponse(responseCode = "409", description = "Невозможно зарегистрировать клиента")})
+            @ApiResponse(responseCode = "409", description = "Невозможно зарегистрировать пользователя")})
     @PreAuthorize("isAnonymous()")
     @PostMapping("/register")
     public ResponseEntity<JwtToken> register(@Valid @RequestBody RegistrationRequest request) {
@@ -49,8 +49,8 @@ public class AuthenticationController {
         return ResponseEntity.ok(token);
     }
 
-    @Operation(summary = "Авторизация клиента",
-            description = "Проводит авторизацию клиента в системе")
+    @Operation(summary = "Авторизация пользователя",
+            description = "Проводит авторизацию пользователя в системе")
     @ApiResponse(responseCode = "400", description = "Некорректные данные")
     @PreAuthorize("isAnonymous()")
     @PostMapping("/login")
@@ -63,7 +63,7 @@ public class AuthenticationController {
     @Operation(summary = "Обновление jwt токена",
             description = "Обновляет jwt токен и выдаёт новый")
     @ApiResponses(value = {@ApiResponse(responseCode = "409", description = "Невалидный токен"),
-            @ApiResponse(responseCode = "404", description = "Клиент не найден")})
+            @ApiResponse(responseCode = "404", description = "Пользователь не найден")})
     @PreAuthorize("isAnonymous()")
     @PostMapping("/refresh")
     public ResponseEntity<JwtToken> refresh(@RequestParam("token") String token) {
@@ -73,7 +73,7 @@ public class AuthenticationController {
     }
 
     @Operation(summary = "Удаление refresh-токена",
-            description = "Удаляет refresh-токен клиента")
+            description = "Удаляет refresh-токен пользователя")
     @ApiResponse(responseCode = "409", description = "Невалидный токен")
     @PreAuthorize("isAuthenticated()")
     @PostMapping("/logout")

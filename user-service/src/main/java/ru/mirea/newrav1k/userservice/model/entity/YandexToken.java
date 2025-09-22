@@ -3,6 +3,8 @@ package ru.mirea.newrav1k.userservice.model.entity;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Index;
 import jakarta.persistence.Table;
@@ -22,12 +24,16 @@ import java.util.UUID;
         name = "t_yandex_tokens",
         schema = "tracker_management",
         indexes = {
+                @Index(name = "idx_yandex_token_ids", columnList = "id"),
                 @Index(name = "idx_yandex_token_tracker_ids", columnList = "trackerId")
         }
 )
 public class YandexToken {
 
     @Id
+    @GeneratedValue(strategy = GenerationType.UUID)
+    private UUID id;
+
     @JsonIgnore
     @Column(name = "tracker_id", nullable = false)
     private UUID trackerId;

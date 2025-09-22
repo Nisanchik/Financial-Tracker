@@ -50,8 +50,8 @@ public class TrackerController {
     }
 
     @Operation(summary = "Получение персональной информации",
-            description = "Получает персональную информацию клиента по его идентификатору")
-    @ApiResponse(responseCode = "404", description = "Клиент не найден")
+            description = "Получает персональную информацию пользователя по его идентификатору")
+    @ApiResponse(responseCode = "404", description = "Пользователь не найден")
     @PreAuthorize("isAuthenticated()")
     @GetMapping("/me")
     public ResponseEntity<TrackerResponse> me(@AuthenticationPrincipal TrackerPrincipal principal) {
@@ -61,8 +61,8 @@ public class TrackerController {
     }
 
     @Operation(summary = "Изменение персональных данных",
-            description = "Изменяет персональные данные клиента по его идентификатору")
-    @ApiResponses(value = {@ApiResponse(responseCode = "404", description = "Клиент не найден"),
+            description = "Изменяет персональные данные пользователя по его идентификатору")
+    @ApiResponses(value = {@ApiResponse(responseCode = "404", description = "Пользователь не найден"),
             @ApiResponse(responseCode = "400", description = "Некорректные данные")})
     @PreAuthorize("isAuthenticated()")
     @PutMapping("/me")
@@ -74,8 +74,8 @@ public class TrackerController {
     }
 
     @Operation(summary = "Изменение пароля",
-            description = "Изменяет пароль клиента по его идентификатору")
-    @ApiResponses(value = {@ApiResponse(responseCode = "404", description = "Клиент не найден"),
+            description = "Изменяет пароль пользователя по его идентификатору")
+    @ApiResponses(value = {@ApiResponse(responseCode = "404", description = "Пользователь не найден"),
             @ApiResponse(responseCode = "400", description = "Некорректные данные")})
     @PreAuthorize("isAuthenticated()")
     @PutMapping("/me/change-password")
@@ -86,9 +86,9 @@ public class TrackerController {
         return ResponseEntity.ok(jwtToken);
     }
 
-    @Operation(summary = "Изменение почты клиента",
-            description = "Изменяет почты клиента по его идентификатору")
-    @ApiResponses(value = {@ApiResponse(responseCode = "404", description = "Клиент не найден"),
+    @Operation(summary = "Изменение почты пользователя",
+            description = "Изменяет почты пользователя по его идентификатору")
+    @ApiResponses(value = {@ApiResponse(responseCode = "404", description = "Пользователь не найден"),
             @ApiResponse(responseCode = "400", description = "Некорректные данные")})
     @PreAuthorize("isAuthenticated()")
     @PutMapping("/me/change-username")
@@ -100,8 +100,8 @@ public class TrackerController {
     }
 
     @Operation(summary = "Удаление своего аккаунта",
-            description = "Удаляет аккаунт клиента по его идентификатору")
-    @ApiResponse(responseCode = "404", description = "Клиент не найден")
+            description = "Удаляет аккаунт пользователя по его идентификатору")
+    @ApiResponse(responseCode = "404", description = "Пользователь не найден")
     @PreAuthorize("isAuthenticated()")
     @DeleteMapping("/me")
     public ResponseEntity<Void> deleteSelf(@AuthenticationPrincipal TrackerPrincipal principal) {
@@ -111,8 +111,8 @@ public class TrackerController {
     }
 
     @Operation(summary = "Удаление своего аккаунта",
-            description = "Удаляет аккаунт клиента по его идентификатору. Доступно только для администратора")
-    @ApiResponse(responseCode = "404", description = "Клиент не найден")
+            description = "Удаляет аккаунт пользователя по его идентификатору. Доступно только для администратора")
+    @ApiResponse(responseCode = "404", description = "Пользователь не найден")
     @PreAuthorize("hasRole('ROLE_ADMIN')")
     @DeleteMapping("/{trackerId}")
     public ResponseEntity<Void> deleteTracker(@PathVariable("trackerId") UUID trackerId) {
