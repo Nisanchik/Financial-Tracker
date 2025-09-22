@@ -17,6 +17,8 @@ import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.web.SecurityFilterChain;
 import ru.mirea.newrav1k.userservice.security.converter.CustomerJwtAuthenticationConverter;
+import ru.mirea.newrav1k.userservice.security.handler.YandexAuthenticationSuccessHandler;
+import ru.mirea.newrav1k.userservice.service.YandexAuthenticationService;
 
 @Configuration
 @EnableWebSecurity
@@ -30,15 +32,23 @@ public class SecurityConfiguration {
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http, JwtDecoder jwtDecoder,
+                                                   YandexAuthenticationService yandexAuthenticationService,
+                                                   YandexAuthenticationSuccessHandler yandexAuthenticationSuccessHandler,
                                                    CustomerJwtAuthenticationConverter customerJwtAuthenticationConverter)
             throws Exception {
         http
                 .csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(authorizationManagerRequestMatcherRegistry -> {
-                    authorizationManagerRequestMatcherRegistry.requestMatchers("/api/auth/**", "/api/public/**",
-                                    "/swagger-ui/**", "/v3/api-docs/**", "/actuator/health")
-                            .permitAll();
+                    authorizationManagerRequestMatcherRegistry.requestMatchers(
+                            "/api/auth/**", "/oauth2/**", "/login/**",
+                            "/swagger-ui/**", "/v3/api-docs/**", "/actuator/health"
+                    ).permitAll();
                     authorizationManagerRequestMatcherRegistry.anyRequest().authenticated();
+                })
+                .oauth2Login(httpSecurityOAuth2LoginConfigurer -> {
+                    httpSecurityOAuth2LoginConfigurer.userInfoEndpoint(userInfoEndpointConfig ->
+                            userInfoEndpointConfig.userService(yandexAuthenticationService));
+                    httpSecurityOAuth2LoginConfigurer.successHandler(yandexAuthenticationSuccessHandler);
                 })
                 .oauth2ResourceServer(serverConfigurer ->
                         serverConfigurer.jwt(jwtConfigurer -> {

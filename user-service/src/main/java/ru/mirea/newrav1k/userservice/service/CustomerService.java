@@ -239,7 +239,7 @@ public class CustomerService implements UserDetailsService {
 
     private JwtToken generateJwtToken(Customer customer) {
         AccessToken newAccessToken = this.jwtAuthenticationService.generateAccessToken(customer);
-        RefreshToken newRefreshToken = this.jwtAuthenticationService.generateRefreshToken(customer);
+        RefreshToken newRefreshToken = this.jwtAuthenticationService.generateRefreshToken(customer.getId());
         return new JwtToken(newAccessToken, newRefreshToken);
     }
 

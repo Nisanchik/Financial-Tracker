@@ -99,15 +99,30 @@ public class JwtAuthenticationService {
         return new AccessToken(accessToken, now.plus(this.accessTokenExpiration));
     }
 
+    public AccessToken generateAccessToken(UUID userId, String username) {
+        log.debug("Generating access token for user {} with username {}", userId, username);
+        Instant now = Instant.now();
+        String accessToken = Jwts.builder()
+                .subject(userId.toString())
+                .claim("username", username)
+                .claim("authorities", "ROLE_USER")
+                .issuedAt(Date.from(now))
+                .expiration(Date.from(now.plus(this.accessTokenExpiration)))
+                .signWith(this.privateKey)
+                .compact();
+
+        return new AccessToken(accessToken, now.plus(this.accessTokenExpiration));
+    }
+
     @Transactional
-    public RefreshToken generateRefreshToken(Customer customer) {
-        log.debug("Generating refresh token for user {}", customer.getId());
+    public RefreshToken generateRefreshToken(UUID userId) {
+        log.debug("Generating refresh token for user {}", userId);
         Instant now = Instant.now();
 
         String uuidToken = UUID.randomUUID().toString();
 
         RefreshTokenEntity refreshTokenEntity = new RefreshTokenEntity();
-        refreshTokenEntity.setCustomerId(customer.getId());
+        refreshTokenEntity.setCustomerId(userId);
         refreshTokenEntity.setToken(uuidToken);
         refreshTokenEntity.setCreatedAt(now);
         refreshTokenEntity.setExpiresAt(now.plus(this.refreshTokenExpiration));
