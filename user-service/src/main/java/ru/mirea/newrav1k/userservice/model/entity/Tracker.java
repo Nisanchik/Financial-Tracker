@@ -13,6 +13,7 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import ru.mirea.newrav1k.userservice.model.enums.AuthenticationProvider;
 import ru.mirea.newrav1k.userservice.model.enums.Authority;
 
 import java.util.ArrayList;
@@ -51,5 +52,9 @@ public class Tracker extends BaseEntity {
     @Builder.Default
     @Enumerated(EnumType.STRING)
     private List<Authority> authorities = new ArrayList<>(List.of(Authority.ROLE_USER));
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "auth_provider", nullable = false)
+    private AuthenticationProvider provider;
 
 }

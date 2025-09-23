@@ -18,11 +18,11 @@ import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import ru.mirea.newrav1k.userservice.exception.TrackerAlreadyExistsException;
-import ru.mirea.newrav1k.userservice.exception.TrackerNotFoundException;
 import ru.mirea.newrav1k.userservice.exception.JwtExpiredException;
 import ru.mirea.newrav1k.userservice.exception.PasswordMismatchException;
 import ru.mirea.newrav1k.userservice.exception.RefreshTokenNotFoundException;
+import ru.mirea.newrav1k.userservice.exception.TrackerAlreadyExistsException;
+import ru.mirea.newrav1k.userservice.exception.TrackerNotFoundException;
 import ru.mirea.newrav1k.userservice.exception.UserServiceException;
 import ru.mirea.newrav1k.userservice.mapper.TrackerMapper;
 import ru.mirea.newrav1k.userservice.model.dto.ChangePasswordRequest;
@@ -32,6 +32,7 @@ import ru.mirea.newrav1k.userservice.model.dto.LoginRequest;
 import ru.mirea.newrav1k.userservice.model.dto.RegistrationRequest;
 import ru.mirea.newrav1k.userservice.model.dto.TrackerResponse;
 import ru.mirea.newrav1k.userservice.model.entity.Tracker;
+import ru.mirea.newrav1k.userservice.model.enums.AuthenticationProvider;
 import ru.mirea.newrav1k.userservice.model.enums.Authority;
 import ru.mirea.newrav1k.userservice.repository.RefreshTokenRepository;
 import ru.mirea.newrav1k.userservice.repository.TrackerRepository;
@@ -88,7 +89,7 @@ public class TrackerService implements UserDetailsService {
             throw new TrackerAlreadyExistsException();
         }
 
-        Tracker tracker = buildtrackerFromRegistrationRequest(request);
+        Tracker tracker = buildTrackerFromRegistrationRequest(request);
 
         try {
             this.trackerRepository.save(tracker);
@@ -229,12 +230,13 @@ public class TrackerService implements UserDetailsService {
         }
     }
 
-    private Tracker buildtrackerFromRegistrationRequest(RegistrationRequest request) {
+    private Tracker buildTrackerFromRegistrationRequest(RegistrationRequest request) {
         Tracker tracker = new Tracker();
         tracker.setUsername(request.username());
         tracker.setFirstname(request.firstname());
         tracker.setLastname(request.lastname());
         tracker.setPassword(this.passwordEncoder.encode(request.password()));
+        tracker.setProvider(AuthenticationProvider.LOCAL);
         return tracker;
     }
 

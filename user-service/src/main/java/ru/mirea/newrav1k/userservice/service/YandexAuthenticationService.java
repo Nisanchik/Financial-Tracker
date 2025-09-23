@@ -12,6 +12,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import ru.mirea.newrav1k.userservice.model.entity.Tracker;
 import ru.mirea.newrav1k.userservice.model.entity.YandexToken;
+import ru.mirea.newrav1k.userservice.model.enums.AuthenticationProvider;
 import ru.mirea.newrav1k.userservice.repository.TrackerRepository;
 import ru.mirea.newrav1k.userservice.repository.YandexTokenRepository;
 import ru.mirea.newrav1k.userservice.security.core.YandexOAuth2Tracker;
@@ -66,7 +67,7 @@ public class YandexAuthenticationService extends DefaultOAuth2UserService {
         tracker.setUsername(username);
         tracker.setFirstname(firstname);
         tracker.setLastname(lastname);
-        tracker.setPassword(UUID.randomUUID().toString());
+        tracker.setProvider(AuthenticationProvider.YANDEX);
         return this.trackerRepository.save(tracker);
     }
 
