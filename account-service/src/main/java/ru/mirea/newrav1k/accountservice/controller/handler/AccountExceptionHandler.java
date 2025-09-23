@@ -52,8 +52,6 @@ public class AccountExceptionHandler {
         ProblemDetail problemDetail = ProblemDetail.forStatus(HttpStatus.BAD_REQUEST);
         problemDetail.setProperties(Map.of("errors", errors));
 
-        // TODO: Добавить кастомный ответ с подробной информацией об ошибке и поле
-
         return ResponseEntity.of(problemDetail).build();
     }
 

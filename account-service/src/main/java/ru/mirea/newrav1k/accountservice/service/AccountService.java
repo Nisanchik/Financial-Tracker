@@ -58,6 +58,7 @@ public class AccountService {
                 .map(this.accountMapper::toAccountResponse);
     }
 
+    @PreAuthorize("isAuthenticated()")
     @Cacheable(value = "account-pages", key = "#trackerId", keyGenerator = "pageableKeyGenerator")
     public Page<AccountResponse> findAllAccountsByTrackerId(UUID trackerId, Pageable pageable) {
         log.debug("Finding all tracker accounts");
@@ -74,6 +75,7 @@ public class AccountService {
                 .orElseThrow(AccountNotFoundException::new);
     }
 
+    @PreAuthorize("isAuthenticated()")
     @Cacheable(value = "account-details", key = "#trackerId + '-' + #accountId")
     public AccountResponse findByTrackerIdAndAccountId(UUID trackerId, UUID accountId) {
         log.debug("Finding account: trackerId={}, accountId={}", trackerId, accountId);
@@ -102,11 +104,10 @@ public class AccountService {
         return this.accountRepository.findAccountByTrackerIdAndId(trackerId, accountId)
                 .map(account -> {
                     account.setName(request.name());
-                    if (request.currency() != null) {
+                    if (request.currency() != null && account.getBalance().signum() == 0) {
                         account.setCurrency(request.currency());
-                        // TODO: изменение курса (опционально)
                     }
-                    return account;
+                    return this.accountRepository.save(account);
                 })
                 .map(this.accountMapper::toAccountResponse)
                 .orElseThrow(AccountAccessDeniedException::new);
@@ -125,10 +126,9 @@ public class AccountService {
             if (jsonNode.has("name")) {
                 account.setName(jsonNode.get("name").asText());
             }
-            if (jsonNode.has("currency")) {
+            if (jsonNode.has("currency") && account.getBalance().signum() == 0) {
                 Currency currency = Currency.findCurrency(jsonNode.get("currency").asText());
                 account.setCurrency(currency);
-                // TODO: изменение курса (опционально)
             }
             if (jsonNode.has("type")) {
                 throw new AccountTypeException();
@@ -147,7 +147,12 @@ public class AccountService {
     @Transactional
     public void deleteById(UUID trackerId, UUID accountId) {
         log.debug("Deleting account: trackerId={}, accountId={}", trackerId, accountId);
-        this.accountRepository.deleteAccountByTrackerIdAndId(trackerId, accountId);
+        Account account = findAccountByTrackerIdAndIdOrThrow(trackerId, accountId);
+        if (!account.isActive()) {
+            // TODO: пробрасывание исключения и уведомление пользователя
+            return;
+        }
+        this.accountRepository.delete(account);
     }
 
     @PreAuthorize("isAuthenticated()")
@@ -206,6 +211,27 @@ public class AccountService {
         log.debug("Withdraw money: accountId={}, amount={}", accountId, amount);
         Account account = findAccountByTrackerIdAndIdOrThrow(trackerId, accountId);
         account.withdraw(amount);
+    }
+
+    @PreAuthorize("isAuthenticated()")
+    @Caching(evict = {
+            @CacheEvict(value = "account-details", key = "#trackerId + '-' + #fromAccountId"),
+            @CacheEvict(value = "account-details", key = "#trackerId + '-' + #toAccountId"),
+            @CacheEvict(value = "account-pages", allEntries = true)
+    })
+    @Transactional
+    public void transferMoney(UUID trackerId, UUID fromAccountId, UUID toAccountId, BigDecimal amount) {
+        log.debug("Transfer money to other account: fromAccountId={}, toAccountId={}", fromAccountId, toAccountId);
+        Account fromAccount = findAccountByTrackerIdAndIdOrThrow(trackerId, fromAccountId);
+        Account toAccount = findAccountByTrackerIdAndIdOrThrow(trackerId, toAccountId);
+        if (!fromAccount.getCurrency().equals(toAccount.getCurrency())) {
+            log.warn("Transfer money from currency does not match to currency");
+            // TODO: реализовать конвертацию и корректную транзакцию между счетами
+            return;
+        }
+        fromAccount.withdraw(amount);
+        toAccount.deposit(amount);
+        this.accountRepository.save(fromAccount);
     }
 
     @PreAuthorize("isAuthenticated()")

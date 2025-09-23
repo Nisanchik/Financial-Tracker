@@ -23,6 +23,4 @@ public interface AccountRepository extends JpaRepository<Account, UUID> {
 
     Optional<Account> findAccountByTrackerIdAndId(UUID trackerId, UUID accountId);
 
-    void deleteAccountByTrackerIdAndId(UUID trackerId, UUID accountId);
-
 }

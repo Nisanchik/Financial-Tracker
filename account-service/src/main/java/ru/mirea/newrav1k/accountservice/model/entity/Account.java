@@ -54,7 +54,7 @@ public class Account extends BaseEntity {
     private AccountType type;
 
     @Column(name = "active", nullable = false)
-    private boolean active = true;
+    private boolean isActive = true;
 
     public void deposit(BigDecimal amount) {
         validateAmount(amount);
@@ -73,7 +73,7 @@ public class Account extends BaseEntity {
         if (this.balance.signum() != 0) {
             throw new AccountBalanceException(BALANCE_NOT_ZERO);
         }
-        this.active = false;
+        this.isActive = false;
     }
 
     private void validateAmount(BigDecimal amount) {
