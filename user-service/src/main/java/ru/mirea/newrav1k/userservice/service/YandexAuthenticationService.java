@@ -14,7 +14,7 @@ import ru.mirea.newrav1k.userservice.model.entity.Tracker;
 import ru.mirea.newrav1k.userservice.model.entity.YandexToken;
 import ru.mirea.newrav1k.userservice.repository.TrackerRepository;
 import ru.mirea.newrav1k.userservice.repository.YandexTokenRepository;
-import ru.mirea.newrav1k.userservice.security.principal.YandexOAuth2Tracker;
+import ru.mirea.newrav1k.userservice.security.core.YandexOAuth2Tracker;
 
 import java.util.Map;
 import java.util.UUID;

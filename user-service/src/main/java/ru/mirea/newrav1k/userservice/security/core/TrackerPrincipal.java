@@ -1,4 +1,4 @@
-package ru.mirea.newrav1k.userservice.security.principal;
+package ru.mirea.newrav1k.userservice.security.core;
 
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;

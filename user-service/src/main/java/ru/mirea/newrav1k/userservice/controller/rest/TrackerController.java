@@ -24,7 +24,7 @@ import ru.mirea.newrav1k.userservice.model.dto.ChangePasswordRequest;
 import ru.mirea.newrav1k.userservice.model.dto.ChangePersonalInfoRequest;
 import ru.mirea.newrav1k.userservice.model.dto.ChangeUsernameRequest;
 import ru.mirea.newrav1k.userservice.model.dto.TrackerResponse;
-import ru.mirea.newrav1k.userservice.security.principal.TrackerPrincipal;
+import ru.mirea.newrav1k.userservice.security.core.TrackerPrincipal;
 import ru.mirea.newrav1k.userservice.security.token.JwtToken;
 import ru.mirea.newrav1k.userservice.service.TrackerService;
 

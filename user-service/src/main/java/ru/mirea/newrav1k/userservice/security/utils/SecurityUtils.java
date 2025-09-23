@@ -2,7 +2,7 @@ package ru.mirea.newrav1k.userservice.security.utils;
 
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Component;
-import ru.mirea.newrav1k.userservice.security.principal.TrackerPrincipal;
+import ru.mirea.newrav1k.userservice.security.core.TrackerPrincipal;
 
 import java.util.UUID;
 

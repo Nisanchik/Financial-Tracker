@@ -13,7 +13,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
-import ru.mirea.newrav1k.userservice.security.principal.TrackerPrincipal;
+import ru.mirea.newrav1k.userservice.security.core.TrackerPrincipal;
 import ru.mirea.newrav1k.userservice.service.JwtAuthenticationService;
 
 import java.io.IOException;

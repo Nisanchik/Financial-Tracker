@@ -14,7 +14,7 @@ import org.springframework.security.oauth2.core.OAuth2RefreshToken;
 import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
 import org.springframework.stereotype.Component;
 import ru.mirea.newrav1k.userservice.model.entity.YandexToken;
-import ru.mirea.newrav1k.userservice.security.principal.YandexOAuth2Tracker;
+import ru.mirea.newrav1k.userservice.security.core.YandexOAuth2Tracker;
 import ru.mirea.newrav1k.userservice.security.token.JwtToken;
 import ru.mirea.newrav1k.userservice.service.JwtAuthenticationService;
 import ru.mirea.newrav1k.userservice.service.YandexAuthenticationService;

@@ -6,7 +6,7 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Component;
-import ru.mirea.newrav1k.userservice.security.principal.TrackerPrincipal;
+import ru.mirea.newrav1k.userservice.security.core.TrackerPrincipal;
 
 import java.util.Collections;
 import java.util.List;
