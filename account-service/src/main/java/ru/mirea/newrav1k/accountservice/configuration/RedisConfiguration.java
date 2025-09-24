@@ -1,11 +1,15 @@
 package ru.mirea.newrav1k.accountservice.configuration;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import io.lettuce.core.ClientOptions;
 import io.lettuce.core.TimeoutOptions;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cache.annotation.EnableCaching;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Primary;
 import org.springframework.data.redis.cache.RedisCacheConfiguration;
 import org.springframework.data.redis.cache.RedisCacheManager;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
@@ -13,6 +17,7 @@ import org.springframework.data.redis.connection.RedisStandaloneConfiguration;
 import org.springframework.data.redis.connection.lettuce.LettuceClientConfiguration;
 import org.springframework.data.redis.connection.lettuce.LettuceConnectionFactory;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.serializer.Jackson2JsonRedisSerializer;
 import org.springframework.data.redis.serializer.RedisSerializationContext;
 import org.springframework.data.redis.serializer.RedisSerializer;
 
@@ -53,18 +58,17 @@ public class RedisConfiguration {
     }
 
     @Bean
-    public RedisCacheManager cacheManager(RedisConnectionFactory connectionFactory) {
+    @Primary
+    public RedisCacheManager cacheManager(RedisConnectionFactory connectionFactory, Jackson2JsonRedisSerializer<Object> jackson2JsonRedisSerializer) {
         RedisCacheConfiguration redisCacheConfiguration = RedisCacheConfiguration.defaultCacheConfig()
                 .serializeKeysWith(RedisSerializationContext.SerializationPair.fromSerializer(RedisSerializer.string()))
-                .serializeValuesWith(RedisSerializationContext.SerializationPair.fromSerializer(RedisSerializer.json()))
+                .serializeValuesWith(RedisSerializationContext.SerializationPair.fromSerializer(jackson2JsonRedisSerializer))
                 .computePrefixWith(cacheName -> "account-service:" + cacheName + ":")
                 .disableCachingNullValues();
 
         Map<String, RedisCacheConfiguration> redisCacheConfigurations = Map.of(
                 "account-details", RedisCacheConfiguration.defaultCacheConfig()
-                        .entryTtl(Duration.ofMinutes(30L)),
-                "account-pages", RedisCacheConfiguration.defaultCacheConfig()
-                        .entryTtl(Duration.ofSeconds(5L))
+                        .entryTtl(Duration.ofMinutes(30L))
         );
 
         return RedisCacheManager.builder(connectionFactory)
@@ -76,14 +80,25 @@ public class RedisConfiguration {
     }
 
     @Bean
-    public RedisTemplate<String, Object> redisTemplate(RedisConnectionFactory connectionFactory) {
+    @Primary
+    public RedisTemplate<String, Object> redisTemplate(RedisConnectionFactory connectionFactory, Jackson2JsonRedisSerializer<Object> jackson2JsonRedisSerializer) {
         RedisTemplate<String, Object> template = new RedisTemplate<>();
         template.setConnectionFactory(connectionFactory);
+        template.setDefaultSerializer(jackson2JsonRedisSerializer);
         template.setKeySerializer(RedisSerializer.string());
-        template.setValueSerializer(RedisSerializer.json());
+        template.setValueSerializer(jackson2JsonRedisSerializer);
         template.setHashKeySerializer(RedisSerializer.string());
-        template.setHashValueSerializer(RedisSerializer.json());
+        template.setHashValueSerializer(jackson2JsonRedisSerializer);
+        template.afterPropertiesSet();
         return template;
+    }
+
+    @Bean
+    public Jackson2JsonRedisSerializer<Object> jackson2JsonRedisSerializer() {
+        ObjectMapper mapper = new ObjectMapper();
+        mapper.registerModule(new JavaTimeModule());
+        mapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+        return new Jackson2JsonRedisSerializer<>(mapper, Object.class);
     }
 
 }

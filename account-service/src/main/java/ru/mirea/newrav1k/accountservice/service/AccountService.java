@@ -51,8 +51,6 @@ public class AccountService {
     private final AccountMapper accountMapper;
 
     @PreAuthorize("hasRole('ADMIN')")
-    @Cacheable(value = "account-pages",
-            key = "'admin-page-' + #pageable.pageNumber + '-size-' + #pageable.pageSize + '-sort-' + #pageable.sort.toString()")
     public Page<AccountResponse> findAll(Pageable pageable) {
         log.debug("Finding all accounts");
         return this.accountRepository.findAll(pageable)
@@ -60,8 +58,6 @@ public class AccountService {
     }
 
     @PreAuthorize("isAuthenticated()")
-    @Cacheable(value = "account-pages",
-            key = "'tracker-' + #trackerId + '-page-' + #pageable.pageNumber + '-size-' + #pageable.pageSize + '-sort-' + #pageable.sort.toString()")
     public Page<AccountResponse> findAllAccountsByTrackerId(UUID trackerId, Pageable pageable) {
         log.debug("Finding all tracker accounts");
         return this.accountRepository.findAllByTrackerId(trackerId, pageable)
@@ -92,13 +88,13 @@ public class AccountService {
         log.debug("Creating account: request={}, trackerId={}", request, trackerId);
         Account account = buildAccountFromRequestAndTrackerId(request, trackerId);
         this.accountRepository.save(account);
+        // TODO: проверку на существование аккаунта у пользователя
         return this.accountMapper.toAccountResponse(account);
     }
 
     @PreAuthorize("isAuthenticated()")
     @Caching(evict = {
-            @CacheEvict(value = "account-details", key = "#trackerId + '-' + #accountId"),
-            @CacheEvict(value = "account-pages", allEntries = true)
+            @CacheEvict(value = "account-details", key = "#trackerId + '-' + #accountId")
     })
     @Transactional
     public AccountResponse update(UUID trackerId, UUID accountId, AccountUpdateRequest request) {
@@ -117,8 +113,7 @@ public class AccountService {
 
     @PreAuthorize("isAuthenticated()")
     @Caching(evict = {
-            @CacheEvict(value = "account-details", key = "#trackerId + '-' + #accountId"),
-            @CacheEvict(value = "account-pages", allEntries = true)
+            @CacheEvict(value = "account-details", key = "#trackerId + '-' + #accountId")
     })
     @Transactional
     public AccountResponse update(UUID trackerId, UUID accountId, JsonNode jsonNode) {
@@ -143,8 +138,7 @@ public class AccountService {
 
     @PreAuthorize("isAuthenticated()")
     @Caching(evict = {
-            @CacheEvict(value = "account-details", key = "#trackerId + '-' + #accountId"),
-            @CacheEvict(value = "account-pages", allEntries = true)
+            @CacheEvict(value = "account-details", key = "#trackerId + '-' + #accountId")
     })
     @Transactional
     public void deleteById(UUID trackerId, UUID accountId) {
@@ -159,8 +153,7 @@ public class AccountService {
 
     @PreAuthorize("isAuthenticated()")
     @Caching(evict = {
-            @CacheEvict(value = "account-details", key = "#trackerId + '-' + #accountId"),
-            @CacheEvict(value = "account-pages", allEntries = true)
+            @CacheEvict(value = "account-details", key = "#trackerId + '-' + #accountId")
     })
     @Retryable(
             retryFor = {
@@ -192,8 +185,7 @@ public class AccountService {
     @Deprecated(forRemoval = true)
     @PreAuthorize("isAuthenticated()")
     @Caching(evict = {
-            @CacheEvict(value = "account-details", key = "#trackerId + '-' + #accountId"),
-            @CacheEvict(value = "account-pages", allEntries = true)
+            @CacheEvict(value = "account-details", key = "#trackerId + '-' + #accountId")
     })
     @Transactional
     public void depositMoney(UUID trackerId, UUID accountId, BigDecimal amount) {
@@ -205,8 +197,7 @@ public class AccountService {
     @Deprecated(forRemoval = true)
     @PreAuthorize("isAuthenticated()")
     @Caching(evict = {
-            @CacheEvict(value = "account-details", key = "#trackerId + '-' + #accountId"),
-            @CacheEvict(value = "account-pages", allEntries = true)
+            @CacheEvict(value = "account-details", key = "#trackerId + '-' + #accountId")
     })
     @Transactional
     public void withdrawMoney(UUID trackerId, UUID accountId, BigDecimal amount) {
@@ -218,8 +209,7 @@ public class AccountService {
     @PreAuthorize("isAuthenticated()")
     @Caching(evict = {
             @CacheEvict(value = "account-details", key = "#trackerId + '-' + #fromAccountId"),
-            @CacheEvict(value = "account-details", key = "#trackerId + '-' + #toAccountId"),
-            @CacheEvict(value = "account-pages", allEntries = true)
+            @CacheEvict(value = "account-details", key = "#trackerId + '-' + #toAccountId")
     })
     @Transactional
     public void transferMoney(UUID trackerId, UUID fromAccountId, UUID toAccountId, BigDecimal amount) {
@@ -238,8 +228,7 @@ public class AccountService {
 
     @PreAuthorize("isAuthenticated()")
     @Caching(evict = {
-            @CacheEvict(value = "account-details", key = "#trackerId + '-' + #accountId"),
-            @CacheEvict(value = "account-pages", allEntries = true)
+            @CacheEvict(value = "account-details", key = "#trackerId + '-' + #accountId")
     })
     @Transactional
     public void deactivateAccount(UUID trackerId, UUID accountId) {
