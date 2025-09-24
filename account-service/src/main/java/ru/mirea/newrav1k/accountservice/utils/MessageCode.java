@@ -26,4 +26,8 @@ public class MessageCode {
 
     public static final String UPDATE_BALANCE_FAILED = "error.update_balance_failed";
 
+    public static final String INACTIVE_ACCOUNT_DELETE_FAILURE = "error.inactive_account_delete_failure";
+
+    public static final String ACCOUNT_SELF_MONEY_TRANSFER_FAILURE = "error.account_self_money_transfer_failure";
+
 }
