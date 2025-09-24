@@ -8,6 +8,7 @@ import org.springframework.cache.annotation.Cacheable;
 import org.springframework.cache.annotation.Caching;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.dao.OptimisticLockingFailureException;
+import org.springframework.dao.TransientDataAccessException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
@@ -19,8 +20,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import ru.mirea.newrav1k.accountservice.exception.AccountAccessDeniedException;
+import ru.mirea.newrav1k.accountservice.exception.AccountAlreadyExistException;
 import ru.mirea.newrav1k.accountservice.exception.AccountBalanceException;
 import ru.mirea.newrav1k.accountservice.exception.AccountNotFoundException;
+import ru.mirea.newrav1k.accountservice.exception.AccountSelfMoneyTransferException;
 import ru.mirea.newrav1k.accountservice.exception.AccountServiceException;
 import ru.mirea.newrav1k.accountservice.exception.AccountStateException;
 import ru.mirea.newrav1k.accountservice.exception.AccountTypeException;
@@ -53,6 +56,7 @@ public class AccountService {
     @PreAuthorize("hasRole('ADMIN')")
     public Page<AccountResponse> findAll(Pageable pageable) {
         log.debug("Finding all accounts");
+        // TODO: фильтрация списка пользователей для администратора
         return this.accountRepository.findAll(pageable)
                 .map(this.accountMapper::toAccountResponse);
     }
@@ -82,14 +86,25 @@ public class AccountService {
                 .orElseThrow(AccountAccessDeniedException::new);
     }
 
+    @Retryable(
+            retryFor = {TransientDataAccessException.class},
+            backoff = @Backoff(delay = 5000, multiplier = 2),
+            noRetryFor = {DataIntegrityViolationException.class},
+            maxAttempts = 5
+    )
     @PreAuthorize("isAuthenticated()")
     @Transactional
     public AccountResponse create(AccountCreateRequest request, UUID trackerId) {
         log.debug("Creating account: request={}, trackerId={}", request, trackerId);
         Account account = buildAccountFromRequestAndTrackerId(request, trackerId);
-        this.accountRepository.save(account);
-        // TODO: проверку на существование аккаунта у пользователя
-        return this.accountMapper.toAccountResponse(account);
+        try {
+            this.accountRepository.save(account);
+
+            return this.accountMapper.toAccountResponse(account);
+        } catch (DataIntegrityViolationException exception) {
+            log.error("Account already exist", exception);
+            throw new AccountAlreadyExistException();
+        }
     }
 
     @PreAuthorize("isAuthenticated()")
@@ -130,6 +145,7 @@ public class AccountService {
             if (jsonNode.has("type")) {
                 throw new AccountTypeException();
             }
+            // TODO: проверку на изменение кредита
             return this.accountMapper.toAccountResponse(account);
         } catch (Exception exception) {
             throw new AccountServiceException("Error while updating account");
@@ -141,14 +157,21 @@ public class AccountService {
             @CacheEvict(value = "account-details", key = "#trackerId + '-' + #accountId")
     })
     @Transactional
-    public void deleteById(UUID trackerId, UUID accountId) {
-        log.debug("Deleting account: trackerId={}, accountId={}", trackerId, accountId);
+    public void softDeleteById(UUID trackerId, UUID accountId, String reason) {
+        log.debug("Soft delete account: trackerId={}, accountId={}", trackerId, accountId);
         Account account = findAccountByTrackerIdAndIdOrThrow(trackerId, accountId);
-        if (!account.isActive()) {
-            // TODO: пробрасывание исключения и уведомление пользователя
-            return;
-        }
-        this.accountRepository.delete(account);
+        validateAccountActive(account);
+        account.softDelete(reason.trim());
+    }
+
+    @PreAuthorize("hasRole('ADMIN')")
+    @Caching(evict = {
+            @CacheEvict(value = "account-details", key = "'*-' + #accountId")
+    })
+    @Transactional
+    public void hardDeleteById(UUID accountId) {
+        log.debug("Hard delete account: accountId={}", accountId);
+        this.accountRepository.deleteById(accountId);
     }
 
     @PreAuthorize("isAuthenticated()")
@@ -214,6 +237,9 @@ public class AccountService {
     @Transactional
     public void transferMoney(UUID trackerId, UUID fromAccountId, UUID toAccountId, BigDecimal amount) {
         log.debug("Transfer money to other account: fromAccountId={}, toAccountId={}", fromAccountId, toAccountId);
+        if (fromAccountId.equals(toAccountId)) {
+            throw new AccountSelfMoneyTransferException();
+        }
         Account fromAccount = findAccountByTrackerIdAndIdOrThrow(trackerId, fromAccountId);
         Account toAccount = findAccountByTrackerIdAndIdOrThrow(trackerId, toAccountId);
         if (!fromAccount.getCurrency().equals(toAccount.getCurrency())) {

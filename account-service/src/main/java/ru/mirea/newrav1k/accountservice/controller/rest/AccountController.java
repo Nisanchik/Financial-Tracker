@@ -120,9 +120,10 @@ public class AccountController {
             description = "Удаляет аккаунт по его идентификатору")
     @DeleteMapping("/{accountId}")
     public ResponseEntity<Void> deleteAccount(@AuthenticationPrincipal HeaderAuthenticationDetails authentication,
-                                              @PathVariable("accountId") UUID accountId) {
+                                              @PathVariable("accountId") UUID accountId,
+                                              @RequestParam("reason") String reason) {
         log.info("Request to delete account: accountId={}", accountId);
-        this.accountService.deleteById(authentication.getTrackerId(), accountId);
+        this.accountService.softDeleteById(authentication.getTrackerId(), accountId, reason);
         return ResponseEntity.noContent().build();
     }
 
