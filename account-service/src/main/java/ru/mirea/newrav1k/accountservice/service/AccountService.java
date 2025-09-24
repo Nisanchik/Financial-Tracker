@@ -51,7 +51,8 @@ public class AccountService {
     private final AccountMapper accountMapper;
 
     @PreAuthorize("hasRole('ADMIN')")
-    @Cacheable(value = "account-pages", keyGenerator = "pageableKeyGenerator")
+    @Cacheable(value = "account-pages",
+            key = "'admin-page-' + #pageable.pageNumber + '-size-' + #pageable.pageSize + '-sort-' + #pageable.sort.toString()")
     public Page<AccountResponse> findAll(Pageable pageable) {
         log.debug("Finding all accounts");
         return this.accountRepository.findAll(pageable)
@@ -59,7 +60,8 @@ public class AccountService {
     }
 
     @PreAuthorize("isAuthenticated()")
-    @Cacheable(value = "account-pages", key = "#trackerId", keyGenerator = "pageableKeyGenerator")
+    @Cacheable(value = "account-pages",
+            key = "'tracker-' + #trackerId + '-page-' + #pageable.pageNumber + '-size-' + #pageable.pageSize + '-sort-' + #pageable.sort.toString()")
     public Page<AccountResponse> findAllAccountsByTrackerId(UUID trackerId, Pageable pageable) {
         log.debug("Finding all tracker accounts");
         return this.accountRepository.findAllByTrackerId(trackerId, pageable)
