@@ -30,4 +30,6 @@ public class MessageCode {
 
     public static final String ACCOUNT_SELF_MONEY_TRANSFER_FAILURE = "error.account_self_money_transfer_failure";
 
+    public static final String ACCOUNT_NAME_ALREADY_EXIST = "error.account_name_already_exist";
+
 }
