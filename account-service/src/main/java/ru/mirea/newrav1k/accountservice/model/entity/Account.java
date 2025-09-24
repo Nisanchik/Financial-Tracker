@@ -6,6 +6,7 @@ import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.Index;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -32,6 +33,9 @@ import static ru.mirea.newrav1k.accountservice.utils.MessageCode.INVALID_AMOUNT;
         indexes = {
                 @Index(name = "idx_account_ids", columnList = "id"),
                 @Index(name = "idx_account_tracker_ids", columnList = "trackerId")
+        },
+        uniqueConstraints = {
+                @UniqueConstraint(name = "uk_account_tracker_name", columnNames = {"trackerId", "name"})
         }
 )
 public class Account extends BaseEntity {

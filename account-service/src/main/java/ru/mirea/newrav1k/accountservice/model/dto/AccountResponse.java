@@ -3,6 +3,7 @@ package ru.mirea.newrav1k.accountservice.model.dto;
 import ru.mirea.newrav1k.accountservice.model.enums.AccountType;
 import ru.mirea.newrav1k.accountservice.model.enums.Currency;
 
+import java.io.Serializable;
 import java.math.BigDecimal;
 import java.util.UUID;
 
@@ -13,6 +14,6 @@ public record AccountResponse(
         Currency currency,
         AccountType type,
         boolean active
-) {
+) implements Serializable {
 
 }
