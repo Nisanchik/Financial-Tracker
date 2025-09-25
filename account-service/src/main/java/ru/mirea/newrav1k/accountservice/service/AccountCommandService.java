@@ -32,6 +32,7 @@ import java.util.UUID;
 
 import static ru.mirea.newrav1k.accountservice.utils.MessageCode.ACCOUNT_CREDIT_LIMIT_IS_INSUFFICIENT;
 import static ru.mirea.newrav1k.accountservice.utils.MessageCode.ACCOUNT_CURRENCY_CANNOT_UPDATE;
+import static ru.mirea.newrav1k.accountservice.utils.MessageCode.ACCOUNT_INACTIVE;
 import static ru.mirea.newrav1k.accountservice.utils.MessageCode.ACCOUNT_NAME_ALREADY_EXIST;
 import static ru.mirea.newrav1k.accountservice.utils.MessageCode.ACCOUNT_TYPE_CANNOT_UPDATE;
 
@@ -50,7 +51,10 @@ public class AccountCommandService {
 
     @Retryable(
             retryFor = {TransientDataAccessException.class},
-            noRetryFor = {DataIntegrityViolationException.class},
+            noRetryFor = {
+                    DataIntegrityViolationException.class,
+                    AccountDuplicateException.class,
+            },
             backoff = @Backoff(delay = 5000, multiplier = 2),
             maxAttempts = 5
     )
@@ -61,6 +65,8 @@ public class AccountCommandService {
         Account account = buildAccountFromTrackerIdAndRequest(trackerId, request);
         try {
             Account savedAccount = this.accountRepository.save(account);
+
+            this.accountRepository.flush();
 
             return this.accountMapper.toAccountResponse(savedAccount);
         } catch (DataIntegrityViolationException exception) {
@@ -122,6 +128,29 @@ public class AccountCommandService {
         }
     }
 
+    @PreAuthorize("isAuthenticated()")
+    @Caching(evict = {
+            @CacheEvict(value = "account-details", key = "#trackerId + '-' + #accountId")
+    })
+    @Transactional
+    public void softDeleteById(UUID trackerId, UUID accountId) {
+        log.debug("Soft delete account: trackerId={}, accountId={}", trackerId, accountId);
+        Account account = findAccountByTrackerIdAndIdOrThrow(trackerId, accountId);
+        validateAccountActive(account);
+        account.softDelete();
+    }
+
+    @PreAuthorize("hasRole('ADMIN')")
+    @Caching(evict = {
+            @CacheEvict(value = "account-details", key = "'*-' + #accountId"),
+            @CacheEvict(value = "account-details", key = "#accountId")
+    })
+    @Transactional
+    public void hardDeleteById(UUID accountId) {
+        log.debug("Hard delete account: accountId={}", accountId);
+        this.accountRepository.deleteById(accountId);
+    }
+
     private Account findAccountByTrackerIdAndIdOrThrow(UUID trackerId, UUID accountId) {
         return this.accountRepository.findAccountByTrackerIdAndId(trackerId, accountId)
                 .orElseThrow(AccountAccessDeniedException::new);
@@ -156,6 +185,13 @@ public class AccountCommandService {
             }
         }
         return null;
+    }
+
+    private void validateAccountActive(Account account) {
+        if (!account.isActive()) {
+            log.warn("Account is not active: accountId={}", account.getId());
+            throw new AccountValidationException(ACCOUNT_INACTIVE);
+        }
     }
 
 }

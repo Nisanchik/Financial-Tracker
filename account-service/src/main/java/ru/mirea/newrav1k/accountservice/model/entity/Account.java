@@ -98,7 +98,7 @@ public class Account extends BaseEntity {
         this.balance = this.balance.subtract(amount);
     }
 
-    public void softDelete(String reason) {
+    public void softDelete() {
         if (this.type == AccountType.CREDIT_CARD) {
             validateCredit(); // Валидация перед удалением кредитного счета
         }
@@ -108,7 +108,6 @@ public class Account extends BaseEntity {
         this.isDeleted = true;
         this.deletedAt = Instant.now();
         this.isActive = false;
-        this.deletedReason = reason;
     }
 
     public void deactivate() {
