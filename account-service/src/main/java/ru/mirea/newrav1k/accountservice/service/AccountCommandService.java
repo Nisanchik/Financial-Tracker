@@ -63,6 +63,9 @@ public class AccountCommandService {
     public AccountResponse createAccount(UUID trackerId, AccountCreateRequest request) {
         log.debug("Creating account: trackerId={}, request={}", trackerId, request);
         Account account = buildAccountFromTrackerIdAndRequest(trackerId, request);
+        if (this.accountRepository.existsByTrackerIdAndName(trackerId, request.name())) {
+            throw new AccountValidationException(ACCOUNT_NAME_ALREADY_EXIST);
+        }
         try {
             Account savedAccount = this.accountRepository.save(account);
 
@@ -83,16 +86,21 @@ public class AccountCommandService {
     @Transactional
     public AccountResponse updateAccount(UUID trackerId, UUID accountId, AccountUpdateRequest request) {
         log.debug("Update account: trackerId={}, accountId={}, request={}", trackerId, accountId, request);
-        return this.accountRepository.findAccountByTrackerIdAndId(trackerId, accountId)
-                .map(account -> {
-                    account.setName(request.name());
-                    if (request.currency() != null && account.getBalance().signum() == 0) {
-                        account.setCurrency(request.currency());
-                    }
-                    return this.accountRepository.save(account);
-                })
-                .map(this.accountMapper::toAccountResponse)
-                .orElseThrow(AccountAccessDeniedException::new);
+        Account account = findAccountByTrackerIdAndIdOrThrow(trackerId, accountId);
+
+        if (this.accountRepository.existsByTrackerIdAndName(trackerId, request.name())) {
+            throw new AccountValidationException(ACCOUNT_NAME_ALREADY_EXIST);
+        }
+
+        if (request.currency() == null && account.getBalance().signum() != 0) {
+            throw new AccountValidationException(ACCOUNT_CURRENCY_CANNOT_UPDATE);
+        }
+
+        account.setName(request.name());
+        account.setCurrency(request.currency());
+
+        Account savedAccount = accountRepository.save(account);
+        return this.accountMapper.toAccountResponse(savedAccount);
     }
 
     @PreAuthorize("isAuthenticated()")
@@ -108,12 +116,11 @@ public class AccountCommandService {
                 account.setName(jsonNode.get("name").asText());
             }
             if (jsonNode.has("currency")) {
-                if (account.getBalance().signum() == 0) {
-                    Currency currency = Currency.findCurrency(jsonNode.get("currency").asText());
-                    account.setCurrency(currency);
-                } else {
+                if (account.getBalance().signum() != 0) {
                     throw new AccountValidationException(ACCOUNT_CURRENCY_CANNOT_UPDATE);
                 }
+                Currency currency = Currency.findCurrency(jsonNode.get("currency").asText());
+                account.setCurrency(currency);
             }
             if (jsonNode.has("type")) {
                 throw new AccountValidationException(ACCOUNT_TYPE_CANNOT_UPDATE);

@@ -24,6 +24,8 @@ public interface AccountRepository extends JpaRepository<Account, UUID>, JpaSpec
 
     Optional<Account> findAccountByTrackerIdAndId(UUID trackerId, UUID accountId);
 
+    boolean existsByTrackerIdAndName(UUID trackerId, String name);
+
     default Specification<Account> buildAccountSpecification(AccountFilter filter) {
         Specification<Account> specification = (root, query, criteriaBuilder) -> criteriaBuilder.conjunction();
 
