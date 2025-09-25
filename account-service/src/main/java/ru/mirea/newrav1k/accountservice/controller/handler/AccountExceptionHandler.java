@@ -9,12 +9,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
-import ru.mirea.newrav1k.accountservice.exception.AccountBalanceException;
-import ru.mirea.newrav1k.accountservice.exception.AccountNotFoundException;
 import ru.mirea.newrav1k.accountservice.exception.AccountServiceException;
-import ru.mirea.newrav1k.accountservice.exception.AccountStateException;
-import ru.mirea.newrav1k.accountservice.exception.ConcurrentModificationException;
-import ru.mirea.newrav1k.accountservice.exception.InsufficientBalanceException;
 
 import java.util.List;
 import java.util.Locale;
@@ -31,8 +26,8 @@ public class AccountExceptionHandler {
 
     @ExceptionHandler(AccountServiceException.class)
     public ResponseEntity<ProblemDetail> handleAccountServiceException(AccountServiceException exception, Locale locale) {
-        String message = this.messageSource.getMessage(exception.getMessageCode(), exception.getArgs(), exception.getMessageCode(), locale);
-        ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(getHttpStatus(exception), message);
+        String message = this.messageSource.getMessage(exception.getMessage(), new Object[0], exception.getMessage(), locale);
+        ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(exception.getHttpStatus(), message);
         return ResponseEntity.of(problemDetail).build();
     }
 
@@ -62,16 +57,6 @@ public class AccountExceptionHandler {
                 "Internal server error", locale);
         ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(HttpStatus.INTERNAL_SERVER_ERROR, message);
         return ResponseEntity.of(problemDetail).build();
-    }
-
-    private HttpStatus getHttpStatus(AccountServiceException exception) {
-        if (exception instanceof InsufficientBalanceException ||
-                exception instanceof AccountNotFoundException || exception instanceof AccountBalanceException) {
-            return HttpStatus.BAD_REQUEST;
-        } else if (exception instanceof ConcurrentModificationException || exception instanceof AccountStateException) {
-            return HttpStatus.CONFLICT;
-        }
-        return HttpStatus.INTERNAL_SERVER_ERROR;
     }
 
 }
