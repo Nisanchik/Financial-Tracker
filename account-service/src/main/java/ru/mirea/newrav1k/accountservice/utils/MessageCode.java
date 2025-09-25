@@ -24,6 +24,8 @@ public class MessageCode {
 
     public static final String ACCOUNT_TYPE_CANNOT_UPDATE = "error.account_type_cannot_update";
 
+    public static final String ACCOUNT_CURRENCY_CANNOT_UPDATE = "error.account_currency_cannot_update";
+
     public static final String UPDATE_BALANCE_FAILED = "error.update_balance_failed";
 
     public static final String INACTIVE_ACCOUNT_DELETE_FAILURE = "error.inactive_account_delete_failure";

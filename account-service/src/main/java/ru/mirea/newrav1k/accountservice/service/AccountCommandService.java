@@ -1,26 +1,39 @@
 package ru.mirea.newrav1k.accountservice.service;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.dao.TransientDataAccessException;
+import org.springframework.http.HttpStatus;
 import org.springframework.retry.annotation.Backoff;
 import org.springframework.retry.annotation.Retryable;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import ru.mirea.newrav1k.accountservice.exception.AccountAlreadyExistException;
-import ru.mirea.newrav1k.accountservice.exception.CreditValidationException;
+import ru.mirea.newrav1k.accountservice.exception.AccountAccessDeniedException;
+import ru.mirea.newrav1k.accountservice.exception.AccountDuplicateException;
+import ru.mirea.newrav1k.accountservice.exception.AccountServiceException;
+import ru.mirea.newrav1k.accountservice.exception.AccountValidationException;
 import ru.mirea.newrav1k.accountservice.mapper.AccountMapper;
 import ru.mirea.newrav1k.accountservice.model.dto.AccountCreateRequest;
 import ru.mirea.newrav1k.accountservice.model.dto.AccountResponse;
+import ru.mirea.newrav1k.accountservice.model.dto.AccountUpdateRequest;
 import ru.mirea.newrav1k.accountservice.model.entity.Account;
 import ru.mirea.newrav1k.accountservice.model.enums.AccountType;
+import ru.mirea.newrav1k.accountservice.model.enums.Currency;
 import ru.mirea.newrav1k.accountservice.repository.AccountRepository;
 
 import java.math.BigDecimal;
 import java.util.Objects;
 import java.util.UUID;
+
+import static ru.mirea.newrav1k.accountservice.utils.MessageCode.ACCOUNT_CREDIT_LIMIT_IS_INSUFFICIENT;
+import static ru.mirea.newrav1k.accountservice.utils.MessageCode.ACCOUNT_CURRENCY_CANNOT_UPDATE;
+import static ru.mirea.newrav1k.accountservice.utils.MessageCode.ACCOUNT_NAME_ALREADY_EXIST;
+import static ru.mirea.newrav1k.accountservice.utils.MessageCode.ACCOUNT_TYPE_CANNOT_UPDATE;
 
 @Slf4j
 @Service
@@ -53,8 +66,65 @@ public class AccountCommandService {
         } catch (DataIntegrityViolationException exception) {
             log.error("Data integrity exception while creation account: trackerId={}, request={}",
                     trackerId, request, exception);
-            throw new AccountAlreadyExistException();
+            throw new AccountDuplicateException(ACCOUNT_NAME_ALREADY_EXIST);
         }
+    }
+
+    @PreAuthorize("isAuthenticated()")
+    @Caching(evict = {
+            @CacheEvict(value = "account-details", key = "#trackerId + '-' + #accountId")
+    })
+    @Transactional
+    public AccountResponse updateAccount(UUID trackerId, UUID accountId, AccountUpdateRequest request) {
+        log.debug("Update account: trackerId={}, accountId={}, request={}", trackerId, accountId, request);
+        return this.accountRepository.findAccountByTrackerIdAndId(trackerId, accountId)
+                .map(account -> {
+                    account.setName(request.name());
+                    if (request.currency() != null && account.getBalance().signum() == 0) {
+                        account.setCurrency(request.currency());
+                    }
+                    return this.accountRepository.save(account);
+                })
+                .map(this.accountMapper::toAccountResponse)
+                .orElseThrow(AccountAccessDeniedException::new);
+    }
+
+    @PreAuthorize("isAuthenticated()")
+    @Caching(evict = {
+            @CacheEvict(value = "account-details", key = "#trackerId + '-' + #accountId")
+    })
+    @Transactional
+    public AccountResponse patchAccount(UUID trackerId, UUID accountId, JsonNode jsonNode) {
+        log.debug("Patch account: trackerId={}, accountId={}, jsonNode={}", trackerId, accountId, jsonNode);
+        Account account = findAccountByTrackerIdAndIdOrThrow(trackerId, accountId);
+        try {
+            if (jsonNode.has("name")) {
+                account.setName(jsonNode.get("name").asText());
+            }
+            if (jsonNode.has("currency")) {
+                if (account.getBalance().signum() == 0) {
+                    Currency currency = Currency.findCurrency(jsonNode.get("currency").asText());
+                    account.setCurrency(currency);
+                } else {
+                    throw new AccountValidationException(ACCOUNT_CURRENCY_CANNOT_UPDATE);
+                }
+            }
+            if (jsonNode.has("type")) {
+                throw new AccountValidationException(ACCOUNT_TYPE_CANNOT_UPDATE);
+            }
+            Account savedAccount = this.accountRepository.save(account);
+            return this.accountMapper.toAccountResponse(savedAccount);
+        } catch (AccountValidationException exception) {
+            throw exception;
+        } catch (Exception exception) {
+            log.error("Error while updating account: trackerId={}, accountId={}", trackerId, accountId, exception);
+            throw new AccountServiceException(exception.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    private Account findAccountByTrackerIdAndIdOrThrow(UUID trackerId, UUID accountId) {
+        return this.accountRepository.findAccountByTrackerIdAndId(trackerId, accountId)
+                .orElseThrow(AccountAccessDeniedException::new);
     }
 
     private Account buildAccountFromTrackerIdAndRequest(UUID trackerId, AccountCreateRequest request) {
@@ -78,7 +148,7 @@ public class AccountCommandService {
             if (Objects.nonNull(request.creditLimit())) {
                 if (request.creditLimit().compareTo(MAX_CREDIT_AMOUNT) > 0) {
                     log.warn("Credit limit exceeded, request={}", request);
-                    throw new CreditValidationException("Credit limit exceeded");
+                    throw new AccountValidationException(ACCOUNT_CREDIT_LIMIT_IS_INSUFFICIENT);
                 }
                 return request.creditLimit();
             } else {
