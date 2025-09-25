@@ -12,8 +12,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import ru.mirea.newrav1k.accountservice.exception.AccountBalanceException;
-import ru.mirea.newrav1k.accountservice.exception.CreditValidationException;
-import ru.mirea.newrav1k.accountservice.exception.InsufficientBalanceException;
+import ru.mirea.newrav1k.accountservice.exception.AccountValidationException;
 import ru.mirea.newrav1k.accountservice.exception.InsufficientCreditException;
 import ru.mirea.newrav1k.accountservice.model.enums.AccountType;
 import ru.mirea.newrav1k.accountservice.model.enums.Currency;
@@ -22,6 +21,9 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.UUID;
 
+import static ru.mirea.newrav1k.accountservice.utils.MessageCode.ACCOUNT_CREDIT_LIMIT_IS_INSUFFICIENT;
+import static ru.mirea.newrav1k.accountservice.utils.MessageCode.ACCOUNT_CREDIT_LIMIT_SPENT;
+import static ru.mirea.newrav1k.accountservice.utils.MessageCode.ACCOUNT_HAVE_OUTSTANDING_LOAN_DEBT;
 import static ru.mirea.newrav1k.accountservice.utils.MessageCode.BALANCE_NOT_ZERO;
 import static ru.mirea.newrav1k.accountservice.utils.MessageCode.INVALID_AMOUNT;
 
@@ -80,20 +82,19 @@ public class Account extends BaseEntity {
 
     public void deposit(BigDecimal amount) {
         validateAmount(amount);
-        validateCreditDeposit(amount); // Добавляем кредитную валидацию
-        this.balance = this.balance.add(amount);
-        // Автоматическое погашение кредитного долга при пополнении
-        if (this.type == AccountType.CREDIT_CARD && isCreditBalanceUsed()) {
+
+        if (this.type == AccountType.CREDIT_CARD) {
+            // Для кредитных карт применяем пополнение к долгу
             applyDepositToCreditDebt(amount);
+        } else {
+            // Для обычных счетов просто увеличиваем баланс
+            this.balance = this.balance.add(amount);
         }
     }
 
     public void withdraw(BigDecimal amount) {
         validateAmount(amount);
-        validateCreditWithdrawal(amount); // Добавляем кредитную валидацию
-        if (this.balance.compareTo(amount) < 0) {
-            throw new InsufficientBalanceException();
-        }
+        validateCreditWithdrawal(amount);
         this.balance = this.balance.subtract(amount);
     }
 
@@ -134,17 +135,11 @@ public class Account extends BaseEntity {
         }
         // 1. Проверка наличия кредитного долга
         if (hasOutstandingCreditDebt()) {
-            throw new CreditValidationException(
-                    "Cannot perform operation: account has outstanding credit debt. " +
-                            "Current debt: " + this.creditDebt + " " + this.currency
-            );
+            throw new AccountValidationException(ACCOUNT_HAVE_OUTSTANDING_LOAN_DEBT);
         }
         // 2. Проверка отрицательного баланса (использованный кредит)
         if (isCreditBalanceUsed()) {
-            throw new CreditValidationException(
-                    "Cannot perform operation: credit limit is currently used. " +
-                            "Used amount: " + getUsedCreditAmount().abs() + " " + this.currency
-            );
+            throw new AccountValidationException(ACCOUNT_CREDIT_LIMIT_SPENT);
         }
     }
 
@@ -179,8 +174,12 @@ public class Account extends BaseEntity {
         if (this.creditLimit == null) {
             return BigDecimal.ZERO;
         }
+
+        // Доступный кредит = лимит - (использованный кредит + долг)
         BigDecimal usedCredit = getUsedCreditAmount();
-        return this.creditLimit.subtract(usedCredit);
+        BigDecimal totalUsed = usedCredit.add(this.creditDebt != null ? this.creditDebt : BigDecimal.ZERO);
+
+        return this.creditLimit.subtract(totalUsed);
     }
 
     /**
@@ -194,63 +193,36 @@ public class Account extends BaseEntity {
         // Для кредитного счета проверяем доступный лимит
         BigDecimal availableCredit = getAvailableCredit();
         if (amount.compareTo(availableCredit) > 0) {
-            throw new InsufficientCreditException(
-                    "Insufficient credit limit. " +
-                            "Requested: " + amount + " " + this.currency + ", " +
-                            "Available: " + availableCredit + " " + this.currency
-            );
+            throw new InsufficientCreditException(ACCOUNT_CREDIT_LIMIT_IS_INSUFFICIENT);
         }
-    }
-
-    /**
-     * Валидация пополнения для кредитного счета
-     */
-    public void validateCreditDeposit(BigDecimal amount) {
-        if (this.type != AccountType.CREDIT_CARD) {
-            return;
-        }
-        validateAmount(amount);
-        // Для кредитного счета проверяем, не превышает ли пополнение долг
-        if (isCreditBalanceUsed() && amount.compareTo(getUsedCreditAmount()) > 0) {
-            throw new CreditValidationException(
-                    "Deposit amount exceeds credit debt. " +
-                            "Maximum allowed: " + getUsedCreditAmount() + " " + currency
-            );
-        }
-    }
-
-    /**
-     * Обновление кредитного долга после платежа
-     */
-    public void updateCreditDebt(BigDecimal paymentAmount) {
-        if (this.creditDebt == null) {
-            this.creditDebt = BigDecimal.ZERO;
-        }
-        if (paymentAmount.compareTo(creditDebt) > 0) {
-            throw new CreditValidationException(
-                    "Payment amount exceeds current debt. " +
-                            "Debt: " + this.creditDebt + " " + this.currency
-            );
-        }
-        this.creditDebt = this.creditDebt.subtract(paymentAmount);
     }
 
     /**
      * Автоматическое применение пополнения к погашению кредитного долга
      */
     private void applyDepositToCreditDebt(BigDecimal amount) {
-        BigDecimal usedCredit = getUsedCreditAmount();
         BigDecimal remainingAmount = amount;
-        // Сначала погашаем использованный кредит
-        if (usedCredit.compareTo(BigDecimal.ZERO) > 0) {
+
+        // 1. Сначала погашаем отрицательный баланс (использованный кредит)
+        if (isCreditBalanceUsed()) {
+            BigDecimal usedCredit = getUsedCreditAmount();
             BigDecimal creditRepayment = usedCredit.min(remainingAmount);
+
             this.balance = this.balance.add(creditRepayment);
             remainingAmount = remainingAmount.subtract(creditRepayment);
         }
-        // Оставшаяся сумма идет на погашение основного долга
+
+        // 2. Если остались средства после погашения отрицательного баланса,
+        //    погашаем основной кредитный долг
         if (remainingAmount.compareTo(BigDecimal.ZERO) > 0 && hasOutstandingCreditDebt()) {
             BigDecimal debtRepayment = this.creditDebt.min(remainingAmount);
-            updateCreditDebt(debtRepayment);
+            this.creditDebt = this.creditDebt.subtract(debtRepayment);
+            remainingAmount = remainingAmount.subtract(debtRepayment);
+        }
+
+        // 3. Если после всего еще остались средства, добавляем к балансу
+        if (remainingAmount.compareTo(BigDecimal.ZERO) > 0) {
+            this.balance = this.balance.add(remainingAmount);
         }
     }
 
