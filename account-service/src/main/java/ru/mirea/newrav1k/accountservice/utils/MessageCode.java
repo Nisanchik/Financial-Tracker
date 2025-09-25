@@ -32,4 +32,10 @@ public class MessageCode {
 
     public static final String ACCOUNT_NAME_ALREADY_EXIST = "error.account_name_already_exist";
 
+    public static final String ACCOUNT_CREDIT_LIMIT_IS_INSUFFICIENT = "error.account_credit_limit_is_insufficient";
+
+    public static final String ACCOUNT_CREDIT_LIMIT_SPENT = "error.account_credit_limit_spent";
+
+    public static final String ACCOUNT_HAVE_OUTSTANDING_LOAN_DEBT = "error.account_have_outstanding_loan_debt";
+
 }

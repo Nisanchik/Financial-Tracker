@@ -1,6 +1,7 @@
 package ru.mirea.newrav1k.accountservice.exception;
 
 import lombok.Getter;
+import org.springframework.http.HttpStatus;
 
 import java.io.Serial;
 
@@ -10,18 +11,16 @@ public class AccountServiceException extends RuntimeException {
     @Serial
     private static final long serialVersionUID = -1656310440954290228L;
 
-    private final String messageCode;
+    private final HttpStatus httpStatus;
 
-    private final transient Object[] args;
-
-    public AccountServiceException(String message) {
-        this.messageCode = message;
-        this.args = new Object[0];
+    public AccountServiceException(String message, HttpStatus httpStatus) {
+        super(message);
+        this.httpStatus = httpStatus;
     }
 
-    public AccountServiceException(String message, Object[] args) {
-        this.messageCode = message;
-        this.args = args;
+    public AccountServiceException(String message, Throwable cause, HttpStatus httpStatus) {
+        super(message, cause);
+        this.httpStatus = httpStatus;
     }
 
 }
