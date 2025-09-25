@@ -1,9 +1,12 @@
 package ru.mirea.newrav1k.accountservice.model.dto;
 
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
 import ru.mirea.newrav1k.accountservice.model.enums.AccountType;
 import ru.mirea.newrav1k.accountservice.model.enums.Currency;
+
+import java.math.BigDecimal;
 
 public record AccountCreateRequest(
         @NotNull(message = "account.name.null")
@@ -14,7 +17,10 @@ public record AccountCreateRequest(
         Currency currency,
 
         @NotNull(message = "account.type.null")
-        AccountType type
+        AccountType type,
+
+        @Positive(message = "error.account_credit_limit_cannot_be_negative")
+        BigDecimal creditLimit
 ) {
 
 }
