@@ -11,6 +11,8 @@ import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.dao.TransientDataAccessException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
+import org.springframework.http.HttpStatus;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.retry.annotation.Backoff;
 import org.springframework.retry.annotation.Recover;
@@ -20,15 +22,15 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import ru.mirea.newrav1k.accountservice.exception.AccountAccessDeniedException;
-import ru.mirea.newrav1k.accountservice.exception.AccountAlreadyExistException;
 import ru.mirea.newrav1k.accountservice.exception.AccountBalanceException;
+import ru.mirea.newrav1k.accountservice.exception.AccountDuplicateException;
 import ru.mirea.newrav1k.accountservice.exception.AccountNotFoundException;
-import ru.mirea.newrav1k.accountservice.exception.AccountSelfMoneyTransferException;
 import ru.mirea.newrav1k.accountservice.exception.AccountServiceException;
-import ru.mirea.newrav1k.accountservice.exception.AccountStateException;
-import ru.mirea.newrav1k.accountservice.exception.AccountTypeException;
+import ru.mirea.newrav1k.accountservice.exception.AccountTransferException;
+import ru.mirea.newrav1k.accountservice.exception.AccountValidationException;
 import ru.mirea.newrav1k.accountservice.mapper.AccountMapper;
 import ru.mirea.newrav1k.accountservice.model.dto.AccountCreateRequest;
+import ru.mirea.newrav1k.accountservice.model.dto.AccountFilter;
 import ru.mirea.newrav1k.accountservice.model.dto.AccountResponse;
 import ru.mirea.newrav1k.accountservice.model.dto.AccountUpdateRequest;
 import ru.mirea.newrav1k.accountservice.model.entity.Account;
@@ -40,6 +42,10 @@ import ru.mirea.newrav1k.accountservice.utils.MessageCode;
 
 import java.math.BigDecimal;
 import java.util.UUID;
+
+import static ru.mirea.newrav1k.accountservice.utils.MessageCode.ACCOUNT_INACTIVE;
+import static ru.mirea.newrav1k.accountservice.utils.MessageCode.ACCOUNT_NAME_ALREADY_EXIST;
+import static ru.mirea.newrav1k.accountservice.utils.MessageCode.ACCOUNT_TYPE_CANNOT_UPDATE;
 
 @Slf4j
 @Service
@@ -62,9 +68,11 @@ public class AccountService {
     }
 
     @PreAuthorize("isAuthenticated()")
-    public Page<AccountResponse> findAllAccountsByTrackerId(UUID trackerId, Pageable pageable) {
+    public Page<AccountResponse> findAllAccountsByTrackerId(UUID trackerId, AccountFilter filter, Pageable pageable) {
         log.debug("Finding all tracker accounts");
-        return this.accountRepository.findAllByTrackerId(trackerId, pageable)
+        AccountFilter updatedFilter = new AccountFilter(trackerId, filter.name(), filter.currency(), filter.createdAtFrom(), filter.createdAtTo());
+        Specification<Account> specification = this.accountRepository.buildAccountSpecification(updatedFilter);
+        return this.accountRepository.findAll(specification, pageable)
                 .map(this.accountMapper::toAccountResponse);
     }
 
@@ -103,7 +111,7 @@ public class AccountService {
             return this.accountMapper.toAccountResponse(account);
         } catch (DataIntegrityViolationException exception) {
             log.error("Account already exist", exception);
-            throw new AccountAlreadyExistException();
+            throw new AccountDuplicateException(ACCOUNT_NAME_ALREADY_EXIST);
         }
     }
 
@@ -143,12 +151,13 @@ public class AccountService {
                 account.setCurrency(currency);
             }
             if (jsonNode.has("type")) {
-                throw new AccountTypeException();
+                throw new AccountValidationException(ACCOUNT_TYPE_CANNOT_UPDATE);
             }
             // TODO: проверку на изменение кредита
             return this.accountMapper.toAccountResponse(account);
         } catch (Exception exception) {
-            throw new AccountServiceException("Error while updating account");
+            log.error("Cannot update account: trackerId={}, jsonNode={}", trackerId, jsonNode, exception);
+            throw new AccountServiceException(exception.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
 
@@ -157,11 +166,11 @@ public class AccountService {
             @CacheEvict(value = "account-details", key = "#trackerId + '-' + #accountId")
     })
     @Transactional
-    public void softDeleteById(UUID trackerId, UUID accountId, String reason) {
+    public void softDeleteById(UUID trackerId, UUID accountId) {
         log.debug("Soft delete account: trackerId={}, accountId={}", trackerId, accountId);
         Account account = findAccountByTrackerIdAndIdOrThrow(trackerId, accountId);
         validateAccountActive(account);
-        account.softDelete(reason.trim());
+        account.softDelete();
     }
 
     @PreAuthorize("hasRole('ADMIN')")
@@ -238,7 +247,7 @@ public class AccountService {
     public void transferMoney(UUID trackerId, UUID fromAccountId, UUID toAccountId, BigDecimal amount) {
         log.debug("Transfer money to other account: fromAccountId={}, toAccountId={}", fromAccountId, toAccountId);
         if (fromAccountId.equals(toAccountId)) {
-            throw new AccountSelfMoneyTransferException();
+            throw new AccountTransferException();
         }
         Account fromAccount = findAccountByTrackerIdAndIdOrThrow(trackerId, fromAccountId);
         Account toAccount = findAccountByTrackerIdAndIdOrThrow(trackerId, toAccountId);
@@ -285,7 +294,7 @@ public class AccountService {
     private void validateAccountActive(Account account) {
         if (!account.isActive()) {
             log.warn("Account is not active: accountId={}", account.getId());
-            throw new AccountStateException();
+            throw new AccountValidationException(ACCOUNT_INACTIVE);
         }
     }
 

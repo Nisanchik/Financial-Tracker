@@ -17,6 +17,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -27,6 +28,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.util.UriComponentsBuilder;
 import ru.mirea.newrav1k.accountservice.model.dto.AccountCreateRequest;
+import ru.mirea.newrav1k.accountservice.model.dto.AccountFilter;
 import ru.mirea.newrav1k.accountservice.model.dto.AccountResponse;
 import ru.mirea.newrav1k.accountservice.model.dto.AccountUpdateRequest;
 import ru.mirea.newrav1k.accountservice.security.HeaderAuthenticationDetails;
@@ -50,9 +52,10 @@ public class AccountController {
             description = "Загружает все аккаунты")
     @GetMapping
     public PagedModel<AccountResponse> getAllAccounts(@AuthenticationPrincipal HeaderAuthenticationDetails authentication,
+                                                      @ModelAttribute AccountFilter filter,
                                                       @PageableDefault Pageable pageable) {
         log.info("Request to get all accounts");
-        Page<AccountResponse> accounts = this.accountService.findAllAccountsByTrackerId(authentication.getTrackerId(), pageable);
+        Page<AccountResponse> accounts = this.accountService.findAllAccountsByTrackerId(authentication.getTrackerId(), filter, pageable);
         return new PagedModel<>(accounts);
     }
 
@@ -120,10 +123,9 @@ public class AccountController {
             description = "Удаляет аккаунт по его идентификатору")
     @DeleteMapping("/{accountId}")
     public ResponseEntity<Void> deleteAccount(@AuthenticationPrincipal HeaderAuthenticationDetails authentication,
-                                              @PathVariable("accountId") UUID accountId,
-                                              @RequestParam("reason") String reason) {
+                                              @PathVariable("accountId") UUID accountId) {
         log.info("Request to delete account: accountId={}", accountId);
-        this.accountService.softDeleteById(authentication.getTrackerId(), accountId, reason);
+        this.accountService.softDeleteById(authentication.getTrackerId(), accountId);
         return ResponseEntity.noContent().build();
     }
 
