@@ -23,6 +23,9 @@ public class SecurityConfiguration {
         http
                 .csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(authorizationManagerRequestMatcherRegistry -> {
+                    authorizationManagerRequestMatcherRegistry.requestMatchers(
+                            "/v3/api-docs/**", "/swagger-ui/**"
+                    ).permitAll();
                     authorizationManagerRequestMatcherRegistry.requestMatchers("/api/admin/**").hasRole("ADMIN");
                     authorizationManagerRequestMatcherRegistry.anyRequest().authenticated();
                 })

@@ -64,7 +64,7 @@ public class AccountCommandService {
         log.debug("Creating account: trackerId={}, request={}", trackerId, request);
         Account account = buildAccountFromTrackerIdAndRequest(trackerId, request);
         if (this.accountRepository.existsByTrackerIdAndName(trackerId, request.name())) {
-            throw new AccountValidationException(ACCOUNT_NAME_ALREADY_EXIST);
+            throw new AccountDuplicateException(ACCOUNT_NAME_ALREADY_EXIST);
         }
         try {
             Account savedAccount = this.accountRepository.save(account);

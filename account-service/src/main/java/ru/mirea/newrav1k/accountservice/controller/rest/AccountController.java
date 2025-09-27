@@ -2,12 +2,17 @@ package ru.mirea.newrav1k.accountservice.controller.rest;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.enums.ParameterIn;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.ExampleObject;
+import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
-import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
@@ -54,14 +59,31 @@ public class AccountController {
 
     private final AccountQueryService accountQueryService;
 
-    // TODO: Исправить документацию
-
     @Operation(summary = "Загрузка аккаунтов",
-            description = "Загружает все аккаунты")
+            description = """
+                    Загружает список всех аккаунтов с возможностью фильтрации.
+                    Доступно только для аутентифицированных пользователей.
+                    
+                    **Особенности:**
+                            - Автоматическая фильтрация по trackerId текущего пользователя
+                            - Поддержка пагинации и сортировки
+                            - Фильтрация по имени, валюте и дате создания
+                    """,
+            parameters = {
+                    @Parameter(name = "trackerId", hidden = true),
+                    @Parameter(name = "name", description = "Имя аккаунта", example = "Основной аккаунт"),
+                    @Parameter(name = "currency", description = "Валюта аккаунта", example = "RUB"),
+                    @Parameter(name = "createdAtFrom", description = "Дата создания от (включительно)", example = "2024-01-01T00:00:00Z"),
+                    @Parameter(name = "createdAtTo", description = "Дата создания до (включительно)", example = "2024-12-31T23:59:59Z"),
+                    @Parameter(name = "page", description = "Номер страницы (начиная с 0)", example = "0"),
+                    @Parameter(name = "size", description = "Размер страницы", example = "20"),
+                    @Parameter(name = "sort", description = "Поле для сортировки (например: name,asc или createdAt,desc)", example = "createdAt,desc")
+            }
+    )
     @GetMapping
     public PagedModel<AccountResponse> getAllAccounts(@AuthenticationPrincipal HeaderAuthenticationDetails authentication,
-                                                      @ModelAttribute AccountFilter filter,
-                                                      @PageableDefault Pageable pageable) {
+                                                      @ParameterObject @ModelAttribute AccountFilter filter,
+                                                      @ParameterObject @PageableDefault Pageable pageable) {
         log.info("Request to get all accounts");
         Page<AccountResponse> accounts =
                 this.accountQueryService.findAllAccountsByTrackerId(authentication.getTrackerId(), filter, pageable);
@@ -69,9 +91,18 @@ public class AccountController {
     }
 
     @Operation(summary = "Загрузка аккаунта",
-            description = "Загружает аккаунт по его идентификатору")
-    @ApiResponse(responseCode = "404",
-            description = "Аккаунт не найден")
+            description = """
+                    Загружает аккаунт пользователя по его уникальному идентификатору.
+                    Доступно только для аутентифицированных пользователей.""",
+            responses = {
+                    @ApiResponse(responseCode = "200", description = "Аккаунт успешно найден"),
+                    @ApiResponse(responseCode = "401", description = "Пользователь не аутентифицирован")
+            },
+            parameters = {
+                    @Parameter(name = "accountId", description = "Идентификатор аккаунта",
+                            example = "48c6cc60-cea6-4872-9333-634516e9e66f", in = ParameterIn.PATH)
+            }
+    )
     @GetMapping("/{accountId}")
     public ResponseEntity<AccountResponse> getAccount(@AuthenticationPrincipal HeaderAuthenticationDetails authentication,
                                                       @PathVariable("accountId") UUID accountId) {
@@ -81,9 +112,20 @@ public class AccountController {
     }
 
     @Operation(summary = "Создание аккаунта",
-            description = "Создаёт новый аккаунт")
-    @ApiResponse(responseCode = "400",
-            description = "Некорректный запрос")
+            description = """
+                    Создает новый аккаунт для пользователя.
+                    Доступно только для аутентифицированных пользователей.""",
+            responses = {
+                    @ApiResponse(responseCode = "201", description = "Аккаунт успешно создан"),
+                    @ApiResponse(responseCode = "400", description = "Ошибка валидации или аккаунт с таким именем уже зарегистрирован у пользователя"),
+                    @ApiResponse(responseCode = "401", description = "Пользователь не аутентифицирован")
+            },
+            requestBody = @io.swagger.v3.oas.annotations.parameters.RequestBody(
+                    description = "Данные для создания аккаунта",
+                    required = true,
+                    content = @Content(mediaType = "application/json", schema = @Schema(implementation = AccountCreateRequest.class))
+            )
+    )
     @PostMapping
     public ResponseEntity<AccountResponse> createAccount(@AuthenticationPrincipal HeaderAuthenticationDetails authentication,
                                                          @Valid @RequestBody AccountCreateRequest request,
@@ -91,18 +133,34 @@ public class AccountController {
         log.info("Request to create account: request={}", request);
         AccountResponse account = this.accountCommandService.createAccount(authentication.getTrackerId(), request);
         return ResponseEntity.created(uriBuilder
-                        .replacePath("/api/account/{accountId}")
+                        .replacePath("/api/accounts/{accountId}")
                         .build(account.id()))
                 .body(account);
     }
 
     @Operation(summary = "Обновление аккаунта",
-            description = "Обновляет аккаунт по его идентификатору")
-    @ApiResponses(value = {
-            @ApiResponse(responseCode = "400",
-                    description = "Некорректный запрос"),
-            @ApiResponse(responseCode = "404",
-                    description = "Аккаунт не найден")})
+            description = """
+                    Обновляет аккаунт пользователя по его уникальному идентификатору.
+                    Доступно только для аутентифицированных пользователей.""",
+            responses = {
+                    @ApiResponse(responseCode = "200", description = "Аккаунт успешно обновлен"),
+                    @ApiResponse(responseCode = "400", description = """
+                            - Ошибка валидации
+                            - Аккаунт с таким названием уже существует
+                            - На аккаунте имеются средства, поэтому невозможно изменить валюту
+                            """),
+                    @ApiResponse(responseCode = "401", description = "Пользователь не аутентифицирован")
+            },
+            requestBody = @io.swagger.v3.oas.annotations.parameters.RequestBody(
+                    description = "Данные для обновления аккаунта пользователя",
+                    required = true,
+                    content = @Content(mediaType = "application/json", schema = @Schema(implementation = AccountUpdateRequest.class))
+            ),
+            parameters = {
+                    @Parameter(name = "accountId", description = "Идентификатор аккаунта",
+                            example = "48c6cc60-cea6-4872-9333-634516e9e66f", in = ParameterIn.PATH)
+            }
+    )
     @PutMapping("/{accountId}")
     public ResponseEntity<AccountResponse> updateAccount(@AuthenticationPrincipal HeaderAuthenticationDetails authentication,
                                                          @PathVariable("accountId") UUID accountId,
@@ -113,12 +171,50 @@ public class AccountController {
     }
 
     @Operation(summary = "Частичное обновление аккаунта",
-            description = "Частично обновляет аккаунт по его идентификатору")
-    @ApiResponses(value = {
-            @ApiResponse(responseCode = "400",
-                    description = "Некорректный запрос"),
-            @ApiResponse(responseCode = "404",
-                    description = "Аккаунт не найден")})
+            description = """
+                    Частично обновляет аккаунт пользователя по его уникальному идентификатору.
+                    Доступно только для аутентифицированных пользователей.""",
+            responses = {
+                    @ApiResponse(responseCode = "200", description = "Аккаунт успешно обновлен"),
+                    @ApiResponse(responseCode = "400", description = """
+                            - Ошибка валидации
+                            - Аккаунт с таким названием уже существует
+                            - На аккаунте имеются средства, поэтому невозможно изменить валюту
+                            """),
+                    @ApiResponse(responseCode = "401", description = "Пользователь не аутентифицирован"),
+                    @ApiResponse(responseCode = "500", description = "Сервер временно не отвечает")
+            },
+            requestBody = @io.swagger.v3.oas.annotations.parameters.RequestBody(
+                    description = "Данные для частичного обновления аккаунта",
+                    required = true,
+                    content = @Content(
+                            mediaType = "application/json",
+                            examples = {
+                                    @ExampleObject(
+                                            name = "Название аккаунта",
+                                            summary = "Изменение названия аккаунта",
+                                            value = """
+                                                    {
+                                                        "name": "Tinkoff"
+                                                    }
+                                                    """
+                                    ),
+                                    @ExampleObject(
+                                            name = "Изменение валюты",
+                                            summary = "Обновление валюты (только для пустых счетов)",
+                                            value = """
+                                                    {
+                                                        "currency": "USD"
+                                                    }
+                                                    """
+                                    )
+                            })
+            ),
+            parameters = {
+                    @Parameter(name = "accountId", description = "Идентификатор аккаунта",
+                            example = "48c6cc60-cea6-4872-9333-634516e9e66f", in = ParameterIn.PATH)
+            }
+    )
     @PatchMapping("/{accountId}")
     public ResponseEntity<AccountResponse> patchAccount(@AuthenticationPrincipal HeaderAuthenticationDetails authentication,
                                                         @PathVariable("accountId") UUID accountId,
@@ -129,7 +225,22 @@ public class AccountController {
     }
 
     @Operation(summary = "Удаление аккаунта",
-            description = "Удаляет аккаунт по его идентификатору")
+            description = """
+                    Удаляет аккаунт пользователя по его уникальному идентификатору.
+                    Доступно только для аутентифицированных пользователей.""",
+            responses = {
+                    @ApiResponse(responseCode = "204", description = "Аккаунт успешно удалился"),
+                    @ApiResponse(responseCode = "400", description = """
+                            - На аккаунте имеется кредитная задолженность
+                            - На аккаунте имеются денежные средства
+                            """),
+                    @ApiResponse(responseCode = "401", description = "Пользователь не аутентифицирован")
+            },
+            parameters = {
+                    @Parameter(name = "accountId", description = "Идентификатор аккаунта",
+                            example = "48c6cc60-cea6-4872-9333-634516e9e66f", in = ParameterIn.PATH)
+            }
+    )
     @DeleteMapping("/{accountId}")
     public ResponseEntity<Void> deleteAccount(@AuthenticationPrincipal HeaderAuthenticationDetails authentication,
                                               @PathVariable("accountId") UUID accountId) {
@@ -140,13 +251,29 @@ public class AccountController {
 
     @Operation(summary = "Обновление баланса",
             description = """
-                    Обновляет баланс аккаунта по его идентификатору.
-                    В зависимости от знака производится пополнение/снятие денег с баланса""")
-    @ApiResponses(value = {
-            @ApiResponse(responseCode = "400",
-                    description = "На счету не достаточно средств"),
-            @ApiResponse(responseCode = "404",
-                    description = "Аккаунт не найден")})
+                    Обновляет баланс аккаунта пользователя по его уникальному идентификатору.
+                    
+                    **Логика операции:**
+                                    - Положительное значение: пополнение счета
+                                    - Отрицательное значение: снятие средств
+                                    - Для кредитных карт учитывается доступный лимит
+                    
+                    **Идемпотентность:** операция гарантированно выполняется только один раз\s
+                    для каждого transactionId (защита от дублирования).
+                    
+                    Доступно только для аутентифицированных пользователей.""",
+            responses = {
+                    @ApiResponse(responseCode = "204", description = "Баланс аккаунта успешно обновился"),
+                    @ApiResponse(responseCode = "401", description = "Пользователь не аутентифицирован")
+            },
+            parameters = {
+                    @Parameter(name = "accountId", description = "Идентификатор аккаунта",
+                            example = "48c6cc60-cea6-4872-9333-634516e9e66f", in = ParameterIn.PATH),
+                    @Parameter(name = "transactionId", description = "Идентификатор транзакции",
+                            example = "4ef81a12-7510-47d5-9ddf-b8642e4106d7", in = ParameterIn.QUERY),
+                    @Parameter(name = "amount", description = "Стоимость", example = "1337", in = ParameterIn.QUERY)
+            }
+    )
     @PostMapping("/{accountId}/update-balance") // @PostMapping для корректной работы FeignClient
     public ResponseEntity<Void> updateAccountBalance(@PathVariable("accountId") UUID accountId,
                                                      @RequestParam("transactionId") UUID transactionId,
@@ -157,14 +284,25 @@ public class AccountController {
         return ResponseEntity.noContent().build();
     }
 
-    @Operation(summary = "Перевод денег на другой счёт",
-            description = "Переводит деньги на другой счёт пользователя")
-    @ApiResponses(value = {
-            @ApiResponse(responseCode = "400",
-                    description = "На счету не достаточно средств"),
-            @ApiResponse(responseCode = "404",
-                    description = "Аккаунт не найден")
-    })
+    @Operation(summary = "Перевод денег на другой аккаунт пользователя",
+            description = """
+                    Переводит деньги пользователя с одного аккаунта на другой аккаунт.
+                    Доступно только для аутентифицированных пользователей.""",
+            responses = {
+                    @ApiResponse(responseCode = "204", description = "Деньги успешно перевелись"),
+                    @ApiResponse(responseCode = "400", description = "Нельзя переводить деньги на этот же аккаунт"),
+                    @ApiResponse(responseCode = "401", description = "Пользователь не аутентифицирован")
+            },
+            parameters = {
+                    @Parameter(name = "fromAccountId", description = "Идентификатор аккаунта отправителя",
+                            example = "48c6cc60-cea6-4872-9333-634516e9e66f", in = ParameterIn.PATH),
+                    @Parameter(name = "toAccountId", description = "Идентификатор аккаунта получателя",
+                            example = "e060355e-fdd1-46c0-ba7c-69cd85ae0264", in = ParameterIn.PATH),
+                    @Parameter(name = "transactionId", description = "Идентификатор транзакции",
+                            example = "4ef81a12-7510-47d5-9ddf-b8642e4106d7", in = ParameterIn.QUERY),
+                    @Parameter(name = "amount", description = "Стоимость", example = "1337", in = ParameterIn.QUERY),
+            }
+    )
     @PostMapping("/{fromAccountId}/transfer/{toAccountId}")
     public ResponseEntity<Void> transferAccount(@PathVariable("fromAccountId") UUID fromAccountId,
                                                 @PathVariable("toAccountId") UUID toAccountId,
@@ -176,34 +314,6 @@ public class AccountController {
         return ResponseEntity.noContent().build();
     }
 
-    @Operation(summary = "Активация аккаунта",
-            description = "Активирует аккаунт по его идентификатору")
-    @ApiResponses(value = {
-            @ApiResponse(responseCode = "409",
-                    description = "Нельзя активировать удалённый аккаунт"),
-            @ApiResponse(responseCode = "404",
-                    description = "Аккаунт не найден")})
-    @PatchMapping("/{accountId}/activate")
-    public ResponseEntity<Void> activateAccount(@PathVariable("accountId") UUID accountId,
-                                                @AuthenticationPrincipal HeaderAuthenticationDetails authentication) {
-        log.info("Request to activate account: accountId={}", accountId);
-        this.accountCommandService.activateAccount(authentication.getTrackerId(), accountId);
-        return ResponseEntity.noContent().build();
-    }
-
-    @Operation(summary = "Деактивация аккаунта",
-            description = "Деактивирует аккаунт по его идентификатору")
-    @ApiResponses(value = {
-            @ApiResponse(responseCode = "400",
-                    description = "На счету не должно быть средств"),
-            @ApiResponse(responseCode = "404",
-                    description = "Аккаунт не найден")})
-    @PatchMapping("/{accountId}/deactivate")
-    public ResponseEntity<Void> deactivateAccount(@PathVariable("accountId") UUID accountId,
-                                                  @AuthenticationPrincipal HeaderAuthenticationDetails authentication) {
-        log.info("Request to deactivate account: accountId={}", accountId);
-        this.accountCommandService.deactivateAccount(authentication.getTrackerId(), accountId);
-        return ResponseEntity.noContent().build();
-    }
+    // TODO: ручки для изменения статуса аккаунта
 
 }
