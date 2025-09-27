@@ -28,12 +28,16 @@ import java.util.UUID;
 public class BankOperation {
 
     @Id
+    @Column(name = "transaction_id")
     private UUID transactionId;
 
-    @Column(nullable = false)
-    private UUID accountId;
+    @Column(name = "from_account_id", nullable = false)
+    private UUID fromAccountId;
 
-    @Column(nullable = false, scale = 2, precision = 19)
+    @Column(name = "to_account_id")
+    private UUID toAccountId;
+
+    @Column(name = "amount", nullable = false, scale = 2, precision = 19)
     private BigDecimal amount;
 
 }

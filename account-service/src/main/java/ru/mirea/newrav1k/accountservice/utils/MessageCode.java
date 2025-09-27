@@ -14,6 +14,10 @@ public class MessageCode {
 
     public static final String ACCOUNT_INACTIVE = "error.account_inactive";
 
+    public static final String ACCOUNT_DELETED = "error.account_deleted";
+
+    public static final String ACCOUNT_CANNOT_ACTIVATE_BECAUSE_DELETED = "error.account_cannot_activate_because_deleted";
+
     public static final String INVALID_AMOUNT = "error.invalid_amount";
 
     public static final String GENERIC_ERROR = "error.generic";

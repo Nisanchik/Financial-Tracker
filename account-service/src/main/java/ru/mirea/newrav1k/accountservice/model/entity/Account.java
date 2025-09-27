@@ -11,9 +11,10 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import lombok.extern.slf4j.Slf4j;
 import ru.mirea.newrav1k.accountservice.exception.AccountBalanceException;
+import ru.mirea.newrav1k.accountservice.exception.AccountStateException;
 import ru.mirea.newrav1k.accountservice.exception.AccountValidationException;
-import ru.mirea.newrav1k.accountservice.exception.InsufficientCreditException;
 import ru.mirea.newrav1k.accountservice.model.enums.AccountType;
 import ru.mirea.newrav1k.accountservice.model.enums.Currency;
 
@@ -21,12 +22,16 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.UUID;
 
+import static ru.mirea.newrav1k.accountservice.utils.MessageCode.ACCOUNT_CANNOT_ACTIVATE_BECAUSE_DELETED;
 import static ru.mirea.newrav1k.accountservice.utils.MessageCode.ACCOUNT_CREDIT_LIMIT_IS_INSUFFICIENT;
-import static ru.mirea.newrav1k.accountservice.utils.MessageCode.ACCOUNT_CREDIT_LIMIT_SPENT;
+import static ru.mirea.newrav1k.accountservice.utils.MessageCode.ACCOUNT_DELETED;
 import static ru.mirea.newrav1k.accountservice.utils.MessageCode.ACCOUNT_HAVE_OUTSTANDING_LOAN_DEBT;
+import static ru.mirea.newrav1k.accountservice.utils.MessageCode.ACCOUNT_INACTIVE;
 import static ru.mirea.newrav1k.accountservice.utils.MessageCode.BALANCE_NOT_ZERO;
+import static ru.mirea.newrav1k.accountservice.utils.MessageCode.INSUFFICIENT_BALANCE;
 import static ru.mirea.newrav1k.accountservice.utils.MessageCode.INVALID_AMOUNT;
 
+@Slf4j
 @Getter
 @Setter
 @NoArgsConstructor
@@ -55,10 +60,10 @@ public class Account extends BaseEntity {
     private BigDecimal balance = BigDecimal.ZERO;
 
     @Column(name = "credit_limit", scale = 2, precision = 19)
-    private BigDecimal creditLimit;
+    private BigDecimal creditLimit = BigDecimal.ZERO;
 
     @Column(name = "credit_debt", scale = 2, precision = 19)
-    private BigDecimal creditDebt;
+    private BigDecimal creditDebt = BigDecimal.ZERO;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 3)
@@ -80,149 +85,264 @@ public class Account extends BaseEntity {
     @Column(name = "deleted_reason")
     private String deletedReason;
 
-    public void deposit(BigDecimal amount) {
-        validateAmount(amount);
-
-        if (this.type == AccountType.CREDIT_CARD) {
-            // Для кредитных карт применяем пополнение к долгу
-            applyDepositToCreditDebt(amount);
-        } else {
-            // Для обычных счетов просто увеличиваем баланс
-            this.balance = this.balance.add(amount);
+    // ===== BASIC VALIDATION =====
+    public void validateAccountState() {
+        if (this.isDeleted) {
+            throw new AccountStateException(ACCOUNT_DELETED);
         }
-    }
-
-    public void withdraw(BigDecimal amount) {
-        validateAmount(amount);
-        validateCreditWithdrawal(amount);
-        this.balance = this.balance.subtract(amount);
-    }
-
-    public void softDelete() {
-        if (this.type == AccountType.CREDIT_CARD) {
-            validateCredit(); // Валидация перед удалением кредитного счета
+        if (!this.isActive) {
+            throw new AccountStateException(ACCOUNT_INACTIVE);
         }
-        if (this.balance.signum() != 0 && this.type != AccountType.CREDIT_CARD) {
-            throw new AccountBalanceException(BALANCE_NOT_ZERO);
-        }
-        this.isDeleted = true;
-        this.deletedAt = Instant.now();
-        this.isActive = false;
-    }
-
-    public void deactivate() {
-        if (this.type == AccountType.CREDIT_CARD) {
-            validateCredit(); // Валидация перед деактивацией кредитного счета
-        } else if (this.balance.signum() != 0) {
-            throw new AccountBalanceException(BALANCE_NOT_ZERO);
-        }
-        this.isActive = false;
     }
 
     private void validateAmount(BigDecimal amount) {
-        if (amount == null || amount.signum() <= 0) {
-            throw new AccountBalanceException(INVALID_AMOUNT);
+        if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException(INVALID_AMOUNT);
         }
     }
 
-    /**
-     * Валидация кредитного счета перед удалением или деактивацией
-     */
-    private void validateCredit() {
-        if (this.type != AccountType.CREDIT_CARD) {
-            return;
-        }
-        // 1. Проверка наличия кредитного долга
-        if (hasOutstandingCreditDebt()) {
-            throw new AccountValidationException(ACCOUNT_HAVE_OUTSTANDING_LOAN_DEBT);
-        }
-        // 2. Проверка отрицательного баланса (использованный кредит)
-        if (isCreditBalanceUsed()) {
-            throw new AccountValidationException(ACCOUNT_CREDIT_LIMIT_SPENT);
-        }
+    private void validateOperationAllowed() {
+        validateAccountState();
+        // Дополнительные проверки в зависимости от типа счета
     }
 
-    /**
-     * Проверка наличия непогашенного кредитного долга
-     */
-    public boolean hasOutstandingCreditDebt() {
-        return this.creditDebt != null && this.creditDebt.compareTo(BigDecimal.ZERO) > 0;
-    }
+    // ===== BALANCE OPERATIONS =====
 
     /**
-     * Проверка использования кредитного лимита (отрицательный баланс)
+     * Универсальный метод пополнения счета
+     * Для кредитных карт: сначала погашаем использованный кредит, потом долг, потом увеличиваем баланс
      */
-    public boolean isCreditBalanceUsed() {
-        return this.balance.compareTo(BigDecimal.ZERO) < 0;
-    }
-
-    /**
-     * Получение суммы использованного кредита
-     */
-    public BigDecimal getUsedCreditAmount() {
-        if (this.balance.compareTo(BigDecimal.ZERO) < 0) {
-            return this.balance.abs(); // Возвращаем положительное число
-        }
-        return BigDecimal.ZERO;
-    }
-
-    /**
-     * Проверка доступного кредитного лимита
-     */
-    public BigDecimal getAvailableCredit() {
-        if (this.creditLimit == null) {
-            return BigDecimal.ZERO;
-        }
-
-        // Доступный кредит = лимит - (использованный кредит + долг)
-        BigDecimal usedCredit = getUsedCreditAmount();
-        BigDecimal totalUsed = usedCredit.add(this.creditDebt != null ? this.creditDebt : BigDecimal.ZERO);
-
-        return this.creditLimit.subtract(totalUsed);
-    }
-
-    /**
-     * Валидация операции снятия для кредитного счета
-     */
-    public void validateCreditWithdrawal(BigDecimal amount) {
-        if (this.type != AccountType.CREDIT_CARD) {
-            return;
-        }
+    public void deposit(BigDecimal amount) {
+        validateOperationAllowed();
         validateAmount(amount);
-        // Для кредитного счета проверяем доступный лимит
-        BigDecimal availableCredit = getAvailableCredit();
-        if (amount.compareTo(availableCredit) > 0) {
-            throw new InsufficientCreditException(ACCOUNT_CREDIT_LIMIT_IS_INSUFFICIENT);
+
+        if (this.type == AccountType.CREDIT_CARD) {
+            processCreditCardDeposit(amount);
+        } else {
+            // Для обычных счетов - простое пополнение
+            this.balance = this.balance.add(amount);
         }
+
+        logDepositOperation(amount);
     }
 
     /**
-     * Автоматическое применение пополнения к погашению кредитного долга
+     * Универсальный метод снятия средств
      */
-    private void applyDepositToCreditDebt(BigDecimal amount) {
+    public void withdraw(BigDecimal amount) {
+        validateOperationAllowed();
+        validateAmount(amount);
+
+        if (!canWithdraw(amount)) {
+            throw new AccountBalanceException(
+                    this.type == AccountType.CREDIT_CARD ? ACCOUNT_CREDIT_LIMIT_IS_INSUFFICIENT : INSUFFICIENT_BALANCE
+            );
+        }
+
+        this.balance = this.balance.subtract(amount);
+        logWithdrawalOperation(amount);
+    }
+
+    /**
+     * Проверка возможности снятия средств
+     */
+    private boolean canWithdraw(BigDecimal amount) {
+        validateAmount(amount);
+
+        if (this.type == AccountType.CREDIT_CARD) {
+            return calculateAvailableCredit().compareTo(amount) >= 0;
+        } else {
+            return this.balance.compareTo(amount) >= 0;
+        }
+    }
+
+    // ===== CREDIT CARD SPECIFIC LOGIC =====
+
+    /**
+     * Логика пополнения для кредитной карты с приоритетом погашения
+     */
+    private void processCreditCardDeposit(BigDecimal amount) {
         BigDecimal remainingAmount = amount;
 
-        // 1. Сначала погашаем отрицательный баланс (использованный кредит)
-        if (isCreditBalanceUsed()) {
-            BigDecimal usedCredit = getUsedCreditAmount();
-            BigDecimal creditRepayment = usedCredit.min(remainingAmount);
+        // 1. Погашение использованного кредитного лимита (отрицательный баланс)
+        if (this.balance.compareTo(BigDecimal.ZERO) < 0) {
+            BigDecimal creditUsed = this.balance.abs();
+            BigDecimal repaymentAmount = creditUsed.min(remainingAmount);
 
-            this.balance = this.balance.add(creditRepayment);
-            remainingAmount = remainingAmount.subtract(creditRepayment);
+            this.balance = this.balance.add(repaymentAmount);
+            remainingAmount = remainingAmount.subtract(repaymentAmount);
         }
 
-        // 2. Если остались средства после погашения отрицательного баланса,
-        //    погашаем основной кредитный долг
-        if (remainingAmount.compareTo(BigDecimal.ZERO) > 0 && hasOutstandingCreditDebt()) {
+        // 2. Погашение основного кредитного долга
+        if (remainingAmount.compareTo(BigDecimal.ZERO) > 0 && this.creditDebt.compareTo(BigDecimal.ZERO) > 0) {
             BigDecimal debtRepayment = this.creditDebt.min(remainingAmount);
             this.creditDebt = this.creditDebt.subtract(debtRepayment);
             remainingAmount = remainingAmount.subtract(debtRepayment);
         }
 
-        // 3. Если после всего еще остались средства, добавляем к балансу
+        // 3. Остаток средств добавляем к балансу
         if (remainingAmount.compareTo(BigDecimal.ZERO) > 0) {
             this.balance = this.balance.add(remainingAmount);
         }
+    }
+
+    /**
+     * Расчет доступного кредитного лимита
+     */
+    public BigDecimal calculateAvailableCredit() {
+        if (this.type != AccountType.CREDIT_CARD) {
+            return BigDecimal.ZERO;
+        }
+
+        // Доступный кредит = общий лимит - (использованный кредит + основной долг)
+        BigDecimal usedCredit = this.balance.compareTo(BigDecimal.ZERO) < 0 ? this.balance.abs() : BigDecimal.ZERO;
+        BigDecimal totalUsed = usedCredit.add(this.creditDebt);
+
+        return this.creditLimit.subtract(totalUsed).max(BigDecimal.ZERO);
+    }
+
+    /**
+     * Получение общей задолженности по кредитной карте
+     */
+    public BigDecimal getTotalDebt() {
+        if (this.type != AccountType.CREDIT_CARD) {
+            return BigDecimal.ZERO;
+        }
+
+        BigDecimal usedCredit = this.balance.compareTo(BigDecimal.ZERO) < 0 ? this.balance.abs() : BigDecimal.ZERO;
+        return usedCredit.add(this.creditDebt);
+    }
+
+    /**
+     * Проверка наличия задолженности
+     */
+    public boolean hasDebt() {
+        return getTotalDebt().compareTo(BigDecimal.ZERO) > 0;
+    }
+
+    // ===== ACCOUNT MANAGEMENT =====
+
+    /**
+     * Мягкое удаление счета с валидацией
+     */
+    public void softDelete() {
+        if (this.isDeleted) {
+            return; // Уже удален
+        }
+
+        validateAccountForDeletion();
+
+        this.isDeleted = true;
+        this.deletedAt = Instant.now();
+        this.isActive = false;
+    }
+
+    /**
+     * Деактивация счета
+     */
+    public void deactivate() {
+        if (!this.isActive) {
+            return; // Уже деактивирован
+        }
+
+        validateAccountForDeactivation();
+        this.isActive = false;
+    }
+
+    /**
+     * Активация счета
+     */
+    public void activate() {
+        if (this.isDeleted) {
+            throw new AccountStateException(ACCOUNT_CANNOT_ACTIVATE_BECAUSE_DELETED);
+        }
+        this.isActive = true;
+    }
+
+    // ===== VALIDATION METHODS =====
+
+    public void validateAccountForDeletion() {
+        if (this.type == AccountType.CREDIT_CARD) {
+            validateCreditCardForDeletion();
+        } else {
+            validateRegularAccountForDeletion();
+        }
+    }
+
+    public void validateAccountForDeactivation() {
+        if (this.type == AccountType.CREDIT_CARD) {
+            validateCreditCardForDeactivation();
+        } else {
+            validateRegularAccountForDeactivation();
+        }
+    }
+
+    private void validateCreditCardForDeletion() {
+        if (hasDebt()) {
+            throw new AccountValidationException(ACCOUNT_HAVE_OUTSTANDING_LOAN_DEBT);
+        }
+
+        // Для кредитной карты разрешаем удаление с положительным балансом
+        // (деньги будут возвращены владельцу через отдельный процесс)
+        if (this.balance.compareTo(BigDecimal.ZERO) > 0) {
+            log.warn("Deleting credit card with positive balance: {}", this.balance);
+        }
+    }
+
+    private void validateCreditCardForDeactivation() {
+        if (hasDebt()) {
+            throw new AccountValidationException(ACCOUNT_HAVE_OUTSTANDING_LOAN_DEBT);
+        }
+    }
+
+    private void validateRegularAccountForDeletion() {
+        if (balance.compareTo(BigDecimal.ZERO) != 0) {
+            throw new AccountBalanceException(BALANCE_NOT_ZERO);
+        }
+    }
+
+    private void validateRegularAccountForDeactivation() {
+        if (balance.compareTo(BigDecimal.ZERO) != 0) {
+            throw new AccountBalanceException(BALANCE_NOT_ZERO);
+        }
+    }
+
+    // ===== BUSINESS LOGIC QUERIES =====
+
+    public boolean canTransferFrom() {
+        if (!this.isActive || this.isDeleted) {
+            return false;
+        }
+
+        if (this.type == AccountType.CREDIT_CARD) {
+            return calculateAvailableCredit().compareTo(BigDecimal.ZERO) > 0;
+        } else {
+            return balance.compareTo(BigDecimal.ZERO) > 0;
+        }
+    }
+
+    public boolean canTransferTo() {
+        return this.isActive && !this.isDeleted;
+    }
+
+    public BigDecimal getMaxWithdrawalAmount() {
+        if (this.type == AccountType.CREDIT_CARD) {
+            return calculateAvailableCredit();
+        } else {
+            return balance;
+        }
+    }
+
+    // ===== LOGGING =====
+
+    private void logDepositOperation(BigDecimal amount) {
+        log.info("Deposit completed: account={}, type={}, amount={}, newBalance={}, creditDebt={}",
+                super.getId(), this.type, amount, this.balance, this.creditDebt);
+    }
+
+    private void logWithdrawalOperation(BigDecimal amount) {
+        log.info("Withdrawal completed: account={}, type={}, amount={}, newBalance={}",
+                super.getId(), this.type, amount, this.balance);
     }
 
 }
