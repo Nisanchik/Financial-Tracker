@@ -13,16 +13,15 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import ru.mirea.newrav1k.accountservice.exception.AccountAccessDeniedException;
-import ru.mirea.newrav1k.accountservice.exception.AccountValidationException;
+import ru.mirea.newrav1k.accountservice.exception.AccountTransferException;
 import ru.mirea.newrav1k.accountservice.model.entity.Account;
 import ru.mirea.newrav1k.accountservice.model.entity.BankOperation;
 import ru.mirea.newrav1k.accountservice.repository.AccountRepository;
 import ru.mirea.newrav1k.accountservice.repository.BankOperationRepository;
 
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.UUID;
-
-import static ru.mirea.newrav1k.accountservice.utils.MessageCode.ACCOUNT_INACTIVE;
 
 @Slf4j
 @Service
@@ -43,24 +42,60 @@ public class BalanceOperationService {
             maxAttempts = 5
     )
     @Caching(evict = {
+            @CacheEvict(value = "account-details", key = "#accountId"),
             @CacheEvict(value = "account-details", key = "#trackerId + '-' + #accountId")
     })
     @Transactional
     public void updateBalance(UUID trackerId, UUID accountId, UUID transactionId, BigDecimal amount) {
         log.debug("Update account balance: trackerId={}, accountId={}, transactionId={}", trackerId, accountId, transactionId);
         Account account = findAccountPessimisticByTrackerIdAndIdOrThrow(trackerId, accountId);
-        if (this.bankOperationRepository.existsByTransactionId(transactionId)) {
-            log.warn("Account was updated from transaction with id {}", transactionId);
+        if (isDuplicateOperation(transactionId)) {
+            log.info("Skipping update balance: transactionId={}, accountId={}", transactionId, accountId);
             return;
         }
-        validateAccountActive(account);
         if (amount.signum() < 0) {
             account.withdraw(amount.abs());
         } else {
             account.deposit(amount);
         }
         this.accountRepository.save(account);
-        this.bankOperationRepository.save(new BankOperation(transactionId, accountId, amount));
+        this.bankOperationRepository.save(new BankOperation(transactionId, accountId, null, amount));
+    }
+
+    @PreAuthorize("isAuthenticated()")
+    @Caching(evict = {
+            @CacheEvict(value = "account-details", key = "#fromAccountId"),
+            @CacheEvict(value = "account-details", key = "#toAccountId"),
+            @CacheEvict(value = "account-details", key = "#trackerId + '-' + #fromAccountId"),
+            @CacheEvict(value = "account-details", key = "#trackerId + '-' + #toAccountId")
+    })
+    @Transactional
+    public void transferFunds(UUID trackerId, UUID fromAccountId, UUID toAccountId, UUID transactionId, BigDecimal amount) {
+        log.debug("Transfer funds: trackerId={}, fromAccount={}, toAccount={}, transactionId={}",
+                trackerId, fromAccountId, toAccountId, transactionId);
+        if (isDuplicateOperation(transactionId)) {
+            log.info("Skipping transfer due to duplicate operation: transactionId={}", transactionId);
+            return;
+        }
+
+        UUID firstAccountId = fromAccountId.compareTo(toAccountId) < 0 ? fromAccountId : toAccountId;
+        UUID secondAccountId = fromAccountId.compareTo(toAccountId) < 0 ? toAccountId : fromAccountId;
+
+        Account firstAccount = findAccountPessimisticByTrackerIdAndIdOrThrow(trackerId, firstAccountId);
+        Account secondAccount = findAccountPessimisticByTrackerIdAndIdOrThrow(trackerId, secondAccountId);
+
+        if (fromAccountId.equals(toAccountId)) {
+            throw new AccountTransferException();
+        }
+
+        Account fromAccount = firstAccount.getId().equals(fromAccountId) ? firstAccount : secondAccount;
+        Account toAccount = fromAccount == firstAccount ? secondAccount : firstAccount;
+
+        fromAccount.withdraw(amount);
+        toAccount.deposit(amount);
+
+        this.accountRepository.saveAll(List.of(fromAccount, toAccount));
+        this.bankOperationRepository.save(new BankOperation(transactionId, fromAccountId, toAccountId, amount));
     }
 
     private Account findAccountPessimisticByTrackerIdAndIdOrThrow(UUID trackerId, UUID accountId) {
@@ -68,11 +103,8 @@ public class BalanceOperationService {
                 .orElseThrow(AccountAccessDeniedException::new);
     }
 
-    private void validateAccountActive(Account account) {
-        if (!account.isActive()) {
-            log.warn("Account is not active: accountId={}", account.getId());
-            throw new AccountValidationException(ACCOUNT_INACTIVE);
-        }
+    private boolean isDuplicateOperation(UUID transactionId) {
+        return this.bankOperationRepository.existsByTransactionId(transactionId);
     }
 
 }
