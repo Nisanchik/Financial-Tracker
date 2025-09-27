@@ -15,6 +15,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import ru.mirea.newrav1k.accountservice.exception.AccountAccessDeniedException;
 import ru.mirea.newrav1k.accountservice.exception.AccountDuplicateException;
+import ru.mirea.newrav1k.accountservice.exception.AccountNotFoundException;
 import ru.mirea.newrav1k.accountservice.exception.AccountServiceException;
 import ru.mirea.newrav1k.accountservice.exception.AccountValidationException;
 import ru.mirea.newrav1k.accountservice.mapper.AccountMapper;
@@ -32,7 +33,6 @@ import java.util.UUID;
 
 import static ru.mirea.newrav1k.accountservice.utils.MessageCode.ACCOUNT_CREDIT_LIMIT_IS_INSUFFICIENT;
 import static ru.mirea.newrav1k.accountservice.utils.MessageCode.ACCOUNT_CURRENCY_CANNOT_UPDATE;
-import static ru.mirea.newrav1k.accountservice.utils.MessageCode.ACCOUNT_INACTIVE;
 import static ru.mirea.newrav1k.accountservice.utils.MessageCode.ACCOUNT_NAME_ALREADY_EXIST;
 import static ru.mirea.newrav1k.accountservice.utils.MessageCode.ACCOUNT_TYPE_CANNOT_UPDATE;
 
@@ -81,7 +81,8 @@ public class AccountCommandService {
 
     @PreAuthorize("isAuthenticated()")
     @Caching(evict = {
-            @CacheEvict(value = "account-details", key = "#trackerId + '-' + #accountId")
+            @CacheEvict(value = "account-details", key = "#trackerId + '-' + #accountId"),
+            @CacheEvict(value = "account-details", key = "#accountId")
     })
     @Transactional
     public AccountResponse updateAccount(UUID trackerId, UUID accountId, AccountUpdateRequest request) {
@@ -105,7 +106,8 @@ public class AccountCommandService {
 
     @PreAuthorize("isAuthenticated()")
     @Caching(evict = {
-            @CacheEvict(value = "account-details", key = "#trackerId + '-' + #accountId")
+            @CacheEvict(value = "account-details", key = "#trackerId + '-' + #accountId"),
+            @CacheEvict(value = "account-details", key = "#accountId")
     })
     @Transactional
     public AccountResponse patchAccount(UUID trackerId, UUID accountId, JsonNode jsonNode) {
@@ -137,13 +139,13 @@ public class AccountCommandService {
 
     @PreAuthorize("isAuthenticated()")
     @Caching(evict = {
-            @CacheEvict(value = "account-details", key = "#trackerId + '-' + #accountId")
+            @CacheEvict(value = "account-details", key = "#trackerId + '-' + #accountId"),
+            @CacheEvict(value = "account-details", key = "#accountId")
     })
     @Transactional
     public void softDeleteById(UUID trackerId, UUID accountId) {
         log.debug("Soft delete account: trackerId={}, accountId={}", trackerId, accountId);
         Account account = findAccountByTrackerIdAndIdOrThrow(trackerId, accountId);
-        validateAccountActive(account);
         account.softDelete();
     }
 
@@ -155,7 +157,38 @@ public class AccountCommandService {
     @Transactional
     public void hardDeleteById(UUID accountId) {
         log.debug("Hard delete account: accountId={}", accountId);
-        this.accountRepository.deleteById(accountId);
+        Account account = this.accountRepository.findById(accountId)
+                .orElseThrow(AccountNotFoundException::new);
+        account.validateAccountForDeletion();
+        this.accountRepository.delete(account);
+    }
+
+    // TODO: добавить общий метод для активации аккаунта
+
+    @PreAuthorize("isAuthenticated()")
+    @Caching(evict = {
+            @CacheEvict(value = "account-details", key = "#trackerId + '-' + #accountId"),
+            @CacheEvict(value = "account-details", key = "#accountId")
+    })
+    @Transactional
+    public void deactivateAccount(UUID trackerId, UUID accountId) {
+        log.debug("Deactivate account: trackerId={}, accountId={}", trackerId, accountId);
+        Account account = findAccountByTrackerIdAndIdOrThrow(trackerId, accountId);
+        account.deactivate();
+        this.accountRepository.save(account);
+    }
+
+    @PreAuthorize("isAuthenticated()")
+    @Caching(evict = {
+            @CacheEvict(value = "account-details", key = "#trackerId + '-' + #accountId"),
+            @CacheEvict(value = "account-details", key = "#accountId")
+    })
+    @Transactional
+    public void activateAccount(UUID trackerId, UUID accountId) {
+        log.debug("Activate account: trackerId={}, accountId={}", trackerId, accountId);
+        Account account = findAccountByTrackerIdAndIdOrThrow(trackerId, accountId);
+        account.activate();
+        this.accountRepository.save(account);
     }
 
     private Account findAccountByTrackerIdAndIdOrThrow(UUID trackerId, UUID accountId) {
@@ -192,13 +225,6 @@ public class AccountCommandService {
             }
         }
         return null;
-    }
-
-    private void validateAccountActive(Account account) {
-        if (!account.isActive()) {
-            log.warn("Account is not active: accountId={}", account.getId());
-            throw new AccountValidationException(ACCOUNT_INACTIVE);
-        }
     }
 
 }
