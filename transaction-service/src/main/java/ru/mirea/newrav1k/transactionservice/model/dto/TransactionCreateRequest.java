@@ -22,8 +22,11 @@ public record TransactionCreateRequest(
         @NotNull(message = "transaction.category.id.null")
         UUID categoryId,
 
+        // TODO: изменить поле для идентификатора аккаунта отправителя
         @NotNull(message = "transaction.account.id.null")
         UUID accountId,
+
+        // TODO: добавить поле для идентификатора аккаунта получателя
 
         @Size(max = 500, message = "transaction.description.size")
         String description,

@@ -50,8 +50,11 @@ public class Transaction extends BaseEntity {
     @Column(name = "category_id", nullable = false)
     private UUID categoryId;
 
+    // TODO: изменить поле для идентификатора аккаунта отправителя
     @Column(name = "account_id", nullable = false)
     private UUID accountId;
+
+    // TODO: добавить поле для идентификатора аккаунта получателя
 
     @Column(name = "description")
     private String description;

@@ -7,6 +7,7 @@ import java.time.Instant;
 public record TransactionFilter(
         String type,
         @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant createdAt
+        //TODO: добавить поле фильтрации по конечной дате временного интервала
 ) {
 
 }

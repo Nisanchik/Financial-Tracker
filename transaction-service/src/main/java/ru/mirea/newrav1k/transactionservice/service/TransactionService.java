@@ -42,6 +42,8 @@ public class TransactionService {
 
     private final TransactionEventPublisher transactionEventPublisher;
 
+    // TODO: добавить кэширование
+
     @PreAuthorize("hasRole('ADMIN')")
     public Page<TransactionResponse> findAll(TransactionFilter filter, Pageable pageable) {
         log.debug("Finding all transactions: filter={}", filter);
@@ -50,6 +52,7 @@ public class TransactionService {
                 .map(this.transactionMapper::toTransactionResponse);
     }
 
+    // TODO: проверить работу спецификации с параметром "trackerId"
     @PreAuthorize("isAuthenticated()")
     public Page<TransactionResponse> findAllByTrackerId(UUID trackerId, TransactionFilter filter, Pageable pageable) {
         log.debug("Finding all transactions: trackerId={}, filter={}", trackerId, filter);
@@ -66,6 +69,7 @@ public class TransactionService {
                 .orElseThrow(TransactionAccessDeniedException::new);
     }
 
+    // TODO: сделать retry при возникновении ошибок (опционально)
     @PreAuthorize("isAuthenticated()")
     @Transactional
     public TransactionResponse create(UUID trackerId, TransactionCreateRequest request) {
@@ -78,7 +82,9 @@ public class TransactionService {
                 transaction.getType(),
                 transaction.getAmount()
         );
+        // TODO: рассмотреть возможность сделать всё в рамках одной транзакции
 
+        // TODO: сделать вывод сообщений при возникновении исключений на стороне account-service
         return this.transactionMapper.toTransactionResponse(transaction);
     }
 
@@ -173,6 +179,8 @@ public class TransactionService {
         transaction.setStatus(status);
         this.transactionRepository.save(transaction);
     }
+
+    // TODO: добавить метод для получения транзакции пользователя
 
     private Transaction savePendingTransaction(UUID trackerId, TransactionCreateRequest request) {
         Transaction transaction = buildTransactionFromRequest(trackerId, request);

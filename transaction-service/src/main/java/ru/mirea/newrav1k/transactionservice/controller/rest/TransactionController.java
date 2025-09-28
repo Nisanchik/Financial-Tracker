@@ -46,6 +46,8 @@ public class TransactionController {
 
     private final TransactionService transactionalService;
 
+    // TODO: написать подробную документацию
+
     @Operation(summary = "Получение всех транзакций",
             description = "Загружает все транзакции с использованием фильтра для поиска")
     @GetMapping

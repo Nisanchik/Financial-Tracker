@@ -32,6 +32,8 @@ public interface TransactionRepository extends JpaRepository<Transaction, UUID>,
                     criteriaBuilder.greaterThanOrEqualTo(root.get("createdAt"), filter.createdAt()));
         }
 
+        // TODO: добавить фильтр для временного периода
+
         return specification;
     }
 
