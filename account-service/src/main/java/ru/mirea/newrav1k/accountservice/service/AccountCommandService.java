@@ -163,31 +163,20 @@ public class AccountCommandService {
         this.accountRepository.delete(account);
     }
 
-    // TODO: добавить общий метод для активации аккаунта
-
     @PreAuthorize("isAuthenticated()")
     @Caching(evict = {
             @CacheEvict(value = "account-details", key = "#trackerId + '-' + #accountId"),
             @CacheEvict(value = "account-details", key = "#accountId")
     })
     @Transactional
-    public void deactivateAccount(UUID trackerId, UUID accountId) {
-        log.debug("Deactivate account: trackerId={}, accountId={}", trackerId, accountId);
+    public void setActivationStatus(UUID trackerId, UUID accountId, boolean activated) {
+        log.debug("Set activation status: trackerId={}, accountId={}, activated={}", trackerId, accountId, activated);
         Account account = findAccountByTrackerIdAndIdOrThrow(trackerId, accountId);
-        account.deactivate();
-        this.accountRepository.save(account);
-    }
-
-    @PreAuthorize("isAuthenticated()")
-    @Caching(evict = {
-            @CacheEvict(value = "account-details", key = "#trackerId + '-' + #accountId"),
-            @CacheEvict(value = "account-details", key = "#accountId")
-    })
-    @Transactional
-    public void activateAccount(UUID trackerId, UUID accountId) {
-        log.debug("Activate account: trackerId={}, accountId={}", trackerId, accountId);
-        Account account = findAccountByTrackerIdAndIdOrThrow(trackerId, accountId);
-        account.activate();
+        if (activated) {
+            account.activate();
+        } else {
+            account.deactivate();
+        }
         this.accountRepository.save(account);
     }
 

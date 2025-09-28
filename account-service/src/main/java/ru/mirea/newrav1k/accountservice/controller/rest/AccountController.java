@@ -314,6 +314,38 @@ public class AccountController {
         return ResponseEntity.noContent().build();
     }
 
-    // TODO: ручки для изменения статуса аккаунта
+    @Operation(summary = "Управление активацией аккаунта",
+            description = """
+                    Управляет активацией аккаунта пользователя по его уникальному идентификатору.
+                    
+                    **Логика операции:**
+                                    - Если параметр activation=true аккаунт активируется
+                                    - Если параметр activation=false аккаунт деактивируется
+                    
+                    Доступно только для аутентифицированных пользователей.
+                    """,
+            responses = {
+                    @ApiResponse(responseCode = "204", description = "Статус аккаунта успешно изменился"),
+                    @ApiResponse(responseCode = "400", description = """
+                            - Аккаунт уже удален
+                            - На аккаунте имеется кредитная задолженность
+                            - На аккаунте имеются денежные средства
+                            """),
+                    @ApiResponse(responseCode = "401", description = "Пользователь не аутентифицирован")
+            },
+            parameters = {
+                    @Parameter(name = "accountId", description = "Идентификатор аккаунта",
+                            example = "48c6cc60-cea6-4872-9333-634516e9e66f", in = ParameterIn.PATH),
+                    @Parameter(name = "activated", description = "Статус активации", example = "true", in = ParameterIn.QUERY)
+            }
+    )
+    @PostMapping("/{accountId}/activation")
+    public ResponseEntity<Void> setActivationAccount(@PathVariable("accountId") UUID accountId,
+                                                     @RequestParam("activation") boolean activated,
+                                                     @AuthenticationPrincipal HeaderAuthenticationDetails authentication) {
+        log.info("Request to set activation: accountId={}, activation={}", accountId, activated);
+        this.accountCommandService.setActivationStatus(authentication.getTrackerId(), accountId, activated);
+        return ResponseEntity.noContent().build();
+    }
 
 }
