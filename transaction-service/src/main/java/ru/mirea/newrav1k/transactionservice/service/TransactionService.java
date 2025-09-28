@@ -52,12 +52,12 @@ public class TransactionService {
                 .map(this.transactionMapper::toTransactionResponse);
     }
 
-    // TODO: проверить работу спецификации с параметром "trackerId"
     @PreAuthorize("isAuthenticated()")
     public Page<TransactionResponse> findAllByTrackerId(UUID trackerId, TransactionFilter filter, Pageable pageable) {
         log.debug("Finding all transactions: trackerId={}, filter={}", trackerId, filter);
-        Specification<Transaction> specification = this.transactionRepository.buildTransactionSpecification(filter);
-        return this.transactionRepository.findAllByTrackerId(trackerId, specification, pageable)
+        TransactionFilter updatedFilter = new TransactionFilter(trackerId, filter.type(), filter.createdAtFrom(), filter.createdAtTo());
+        Specification<Transaction> specification = this.transactionRepository.buildTransactionSpecification(updatedFilter);
+        return this.transactionRepository.findAll(specification, pageable)
                 .map(this.transactionMapper::toTransactionResponse);
     }
 

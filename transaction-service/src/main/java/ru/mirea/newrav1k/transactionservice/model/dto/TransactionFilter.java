@@ -1,13 +1,13 @@
 package ru.mirea.newrav1k.transactionservice.model.dto;
 
-import org.springframework.format.annotation.DateTimeFormat;
-
 import java.time.Instant;
+import java.util.UUID;
 
 public record TransactionFilter(
+        UUID trackerId,
         String type,
-        @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant createdAt
-        //TODO: добавить поле фильтрации по конечной дате временного интервала
+        Instant createdAtFrom,
+        Instant createdAtTo
 ) {
 
 }
