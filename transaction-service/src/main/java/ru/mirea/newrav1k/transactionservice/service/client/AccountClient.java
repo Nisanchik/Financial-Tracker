@@ -16,17 +16,15 @@ import java.util.UUID;
 )
 public interface AccountClient {
 
-    @Deprecated(forRemoval = true)
-    @PostMapping(value = "/api/accounts/{accountId}/withdraw-balance", consumes = "application/json")
-    void withdrawBalance(@PathVariable("accountId") UUID accountId, @RequestParam("amount") BigDecimal amount);
-
-    @Deprecated(forRemoval = true)
-    @PostMapping(value = "/api/accounts/{accountId}/deposit-balance", consumes = "application/json")
-    void depositBalance(@PathVariable("accountId") UUID accountId, @RequestParam("amount") BigDecimal amount);
-
     @PostMapping(value = "/api/accounts/{accountId}/update-balance", consumes = "application/json")
     void updateBalance(@PathVariable("accountId") UUID accountId,
                        @RequestParam("transactionId") UUID transactionId,
                        @RequestParam("amount") BigDecimal amount);
+
+    @PostMapping(value = "/api/accounts/{fromAccountId}/transfer/{toAccountId}", consumes = "application/json")
+    void transferFunds(@PathVariable("fromAccountId") UUID fromAccountId,
+                         @PathVariable("toAccountId") UUID toAccountId,
+                         @RequestParam("transactionId") UUID transactionId,
+                         @RequestParam("amount") BigDecimal amount);
 
 }
