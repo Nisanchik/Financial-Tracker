@@ -6,7 +6,7 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor(access = AccessLevel.PRIVATE)
 public class MessageCode {
 
-    public static final String TRANSACTION_NOT_FOUND = "transaction.not.found";
+    public static final String TRANSACTION_NOT_FOUND = "error.transaction_not_found";
 
     public static final String TRANSACTION_UPDATE_FAILED = "error.transaction_update_failed";
 
