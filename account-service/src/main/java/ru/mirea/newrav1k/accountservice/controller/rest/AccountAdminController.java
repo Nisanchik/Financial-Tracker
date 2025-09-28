@@ -7,6 +7,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
@@ -64,8 +65,8 @@ public class AccountAdminController {
             }
     )
     @GetMapping
-    public PagedModel<AccountResponse> getAllAccounts(@ModelAttribute AccountFilter filter,
-                                                      @PageableDefault Pageable pageable) {
+    public PagedModel<AccountResponse> getAllAccounts(@ParameterObject @ModelAttribute AccountFilter filter,
+                                                      @ParameterObject @PageableDefault Pageable pageable) {
         log.info("Admin request to get all accounts");
         Page<AccountResponse> accounts = this.accountQueryService.findAll(filter, pageable);
         return new PagedModel<>(accounts);

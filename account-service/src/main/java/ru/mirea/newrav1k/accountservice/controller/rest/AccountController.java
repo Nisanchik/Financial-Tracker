@@ -291,7 +291,8 @@ public class AccountController {
             responses = {
                     @ApiResponse(responseCode = "204", description = "Деньги успешно перевелись"),
                     @ApiResponse(responseCode = "400", description = "Нельзя переводить деньги на этот же аккаунт"),
-                    @ApiResponse(responseCode = "401", description = "Пользователь не аутентифицирован")
+                    @ApiResponse(responseCode = "401", description = "Пользователь не аутентифицирован"),
+                    @ApiResponse(responseCode = "409", description = "Закончился кредитный лимит")
             },
             parameters = {
                     @Parameter(name = "fromAccountId", description = "Идентификатор аккаунта отправителя",
