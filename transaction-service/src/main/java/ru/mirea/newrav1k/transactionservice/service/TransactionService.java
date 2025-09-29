@@ -62,7 +62,15 @@ public class TransactionService {
     }
 
     @PreAuthorize("hasRole('ADMIN')")
-    public TransactionResponse findById(UUID trackerId, UUID transactionId) {
+    public TransactionResponse findId(UUID transactionId) {
+        log.debug("Finding transaction: transactionId={}", transactionId);
+        return this.transactionRepository.findById(transactionId)
+                .map(this.transactionMapper::toTransactionResponse)
+                .orElseThrow(TransactionNotFoundException::new);
+    }
+
+    @PreAuthorize("isAuthenticated()")
+    public TransactionResponse findByTrackerIdAndId(UUID trackerId, UUID transactionId) {
         log.debug("Finding transaction: trackerId={}, transactionId={}", trackerId, transactionId);
         return this.transactionRepository.findTransactionByTrackerIdAndId(trackerId, transactionId)
                 .map(this.transactionMapper::toTransactionResponse)

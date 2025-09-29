@@ -73,8 +73,8 @@ public class AccountController {
                     @Parameter(name = "trackerId", hidden = true),
                     @Parameter(name = "name", description = "Имя аккаунта", example = "Основной аккаунт"),
                     @Parameter(name = "currency", description = "Валюта аккаунта", example = "RUB"),
-                    @Parameter(name = "createdAtFrom", description = "Дата создания от (включительно)", example = "2024-01-01T00:00:00Z"),
-                    @Parameter(name = "createdAtTo", description = "Дата создания до (включительно)", example = "2024-12-31T23:59:59Z"),
+                    @Parameter(name = "createdAtFrom", description = "Дата создания от (включительно)", example = "2025-01-01T00:00:00Z"),
+                    @Parameter(name = "createdAtTo", description = "Дата создания до (включительно)", example = "2025-12-31T23:59:59Z"),
                     @Parameter(name = "page", description = "Номер страницы (начиная с 0)", example = "0"),
                     @Parameter(name = "size", description = "Размер страницы", example = "20"),
                     @Parameter(name = "sort", description = "Поле для сортировки (например: name,asc или createdAt,desc)", example = "createdAt,desc")

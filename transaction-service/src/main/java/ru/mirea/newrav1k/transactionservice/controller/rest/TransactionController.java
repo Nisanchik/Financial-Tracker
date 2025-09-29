@@ -2,12 +2,15 @@ package ru.mirea.newrav1k.transactionservice.controller.rest;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.enums.ParameterIn;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
@@ -49,11 +52,29 @@ public class TransactionController {
     // TODO: написать подробную документацию
 
     @Operation(summary = "Получение всех транзакций",
-            description = "Загружает все транзакции с использованием фильтра для поиска")
+            description = """
+                    Загружает список всех транзакций с возможностью фильтрации.
+                    Доступно только для аутентифицированных пользователей.
+                    
+                    **Особенности:**
+                            - Автоматическая фильтрация по trackerId текущего пользователя
+                            - Поддержка пагинации и сортировки
+                            - Фильтрация по имени, валюте и дате создания
+                    """,
+            parameters = {
+                    @Parameter(name = "trackerId", hidden = true),
+                    @Parameter(name = "type", description = "Тип транзакции", example = "INCOME"),
+                    @Parameter(name = "createdAtFrom", description = "Дата создания от (включительно)", example = "2025-01-01T00:00:00Z"),
+                    @Parameter(name = "createdAtTo", description = "Дата создания до (включительно)", example = "2025-12-31T23:59:59Z"),
+                    @Parameter(name = "page", description = "Номер страницы (начиная с 0)", example = "0"),
+                    @Parameter(name = "size", description = "Размер страницы", example = "20"),
+                    @Parameter(name = "sort", description = "Поле для сортировки (например: type,asc или createdAt,desc)", example = "createdAt,desc")
+            }
+    )
     @GetMapping
     public PagedModel<TransactionResponse> getAllTransactions(@AuthenticationPrincipal HeaderAuthenticationDetails authenticationDetails,
-                                                              @Valid @ModelAttribute TransactionFilter filter,
-                                                              @PageableDefault Pageable pageable) {
+                                                              @ParameterObject @Valid @ModelAttribute TransactionFilter filter,
+                                                              @ParameterObject @PageableDefault Pageable pageable) {
         log.info("Getting all transactions: filter={}", filter);
         Page<TransactionResponse> transactions =
                 this.transactionalService.findAllByTrackerId(authenticationDetails.getTrackerId(), filter, pageable);
@@ -61,21 +82,42 @@ public class TransactionController {
     }
 
     @Operation(summary = "Получение конкретной транзакции",
-            description = "Загружает транзакцию по её идентификатору")
-    @ApiResponse(responseCode = "404",
-            description = "Транзакция не найдена")
+            description = """
+                    Загружает транзакцию пользователя по её уникальному идентификатору.
+                    Доступно только для аутентифицированных пользователей.
+                    """,
+            responses = {
+                    @ApiResponse(responseCode = "200", description = "Транзакция успешно найдена"),
+                    @ApiResponse(responseCode = "401", description = "Пользователь не аутентифицирован")
+            },
+            parameters = {
+                    @Parameter(name = "transactionId", description = "Идентификатор транзакции",
+                            example = "492c885b-542a-4997-aa6d-54cd08dabd66", in = ParameterIn.PATH)
+            }
+    )
     @GetMapping("/{transactionId}")
     public ResponseEntity<TransactionResponse> getTransaction(@AuthenticationPrincipal HeaderAuthenticationDetails authenticationDetails,
                                                               @PathVariable("transactionId") UUID transactionId) {
         log.info("Getting transaction: transactionId={}", transactionId);
-        TransactionResponse transaction = this.transactionalService.findById(authenticationDetails.getTrackerId(), transactionId);
+        TransactionResponse transaction = this.transactionalService
+                .findByTrackerIdAndId(authenticationDetails.getTrackerId(), transactionId);
         return ResponseEntity.ok(transaction);
     }
 
     @Operation(summary = "Создание транзакции",
-            description = "Создаёт новую транзакцию и производит списание/начисление денег на счёт")
-    @ApiResponse(responseCode = "400",
-            description = "Некорректный запрос")
+            description = """
+                    Создаёт новую транзакцию.
+                    
+                    **Логика операции:**
+                                    - Если сумма положительная производится пополнение счета
+                                    - Если сумма отрицательная производится снятие денег со счета
+                    
+                    Доступно только для аутентифицированных пользователей.
+                    """,
+            responses = {
+
+            }
+    )
     @PostMapping
     public ResponseEntity<TransactionResponse> createTransaction(@AuthenticationPrincipal HeaderAuthenticationDetails authenticationDetails,
                                                                  @Valid @RequestBody TransactionCreateRequest request,
