@@ -7,6 +7,7 @@ import feign.FeignException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -26,7 +27,7 @@ public class AccountClientExceptionHandler {
         try {
             JsonNode jsonNode = this.objectMapper.readTree(contentUTF8);
             String errorMessage = jsonNode.has("detail") ? jsonNode.get("detail").asText() : exception.getMessage();
-            ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, errorMessage);
+            ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(HttpStatusCode.valueOf(jsonNode.get("status").asInt()), errorMessage);
             return ResponseEntity.badRequest().body(problemDetail);
         } catch (JsonProcessingException e) {
             ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, exception.getMessage());

@@ -25,7 +25,7 @@ public class OutboxService {
 
     private final ObjectMapper objectMapper;
 
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    @Transactional
     public void saveEvent(
             String aggregateType,
             UUID aggregateId,

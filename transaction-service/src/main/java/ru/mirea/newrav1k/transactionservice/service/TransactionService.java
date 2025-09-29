@@ -1,6 +1,7 @@
 package ru.mirea.newrav1k.transactionservice.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import feign.FeignException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -62,7 +63,7 @@ public class TransactionService {
     }
 
     @PreAuthorize("hasRole('ADMIN')")
-    public TransactionResponse findId(UUID transactionId) {
+    public TransactionResponse findById(UUID transactionId) {
         log.debug("Finding transaction: transactionId={}", transactionId);
         return this.transactionRepository.findById(transactionId)
                 .map(this.transactionMapper::toTransactionResponse)
@@ -79,7 +80,7 @@ public class TransactionService {
 
     // TODO: сделать retry при возникновении ошибок (опционально)
     @PreAuthorize("isAuthenticated()")
-    @Transactional
+    @Transactional(noRollbackFor = {FeignException.class, TransactionServiceException.class})
     public TransactionResponse create(UUID trackerId, TransactionCreateRequest request) {
         log.debug("Creating transaction: trackerId={}, request={}", trackerId, request);
         Transaction transaction = savePendingTransaction(trackerId, request);
@@ -90,9 +91,7 @@ public class TransactionService {
                 transaction.getType(),
                 transaction.getAmount()
         );
-        // TODO: рассмотреть возможность сделать всё в рамках одной транзакции
 
-        // TODO: сделать вывод сообщений при возникновении исключений на стороне account-service
         return this.transactionMapper.toTransactionResponse(transaction);
     }
 

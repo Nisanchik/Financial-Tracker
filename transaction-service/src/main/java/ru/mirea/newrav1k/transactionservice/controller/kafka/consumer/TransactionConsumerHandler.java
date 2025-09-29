@@ -49,8 +49,6 @@ public class TransactionConsumerHandler {
     public void handleBalanceUpdateFailure(@Payload BalanceUpdateFailureEvent event) {
         log.debug("Handling BalanceUpdateFailureEvent {}", event);
         try {
-            this.balanceService.compensateTransaction(event.transactionId(), event.accountId(), event.type(), event.amount());
-
             this.transactionService.updateTransactionStatus(event.transactionId(), TransactionStatus.FAILED);
 
             this.processedEventService.markEventAsProcessed(new ProcessedEvent(event.eventId()));
