@@ -36,6 +36,18 @@ services:
     ports:
       - "5434:5432"
 
+  category-db:
+    image: postgres:latest
+    restart: always
+    environment:
+      POSTGRES_DB: $CATEGORY_DATABASE_NAME
+      POSTGRES_USER: $CATEGORY_DATABASE_USER
+      POSTGRES_PASSWORD: $CATEGORY_DATABASE_PASSWORD
+    networks:
+      - financial-network
+    ports:
+      - "5435:5432"
+
   redis:
     image: redis:latest
     restart: always

@@ -1,6 +1,24 @@
 spring:
   application:
     name: category-service
+  datasource:
+    url: jdbc:postgresql://localhost:5435/${CATEGORY_DATABASE_NAME:category-db}
+    username: ${CATEGORY_DATABASE_USER:category-admin}
+    password: ${CATEGORY_DATABASE_PASSWORD:category-password}
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: create
+
+category-service:
+  kafka:
+    topics:
+      # Исходящие события
+      category-change: category.category.changed.v1
+      category-delete: category.category.deleted.v1
+
+
+    group-id: ${spring.application.name}
 
 server:
   port: 8084
