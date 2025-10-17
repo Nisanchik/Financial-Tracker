@@ -14,7 +14,7 @@ import java.util.UUID;
 @Entity
 @Table(
         name = "t_outbox_events",
-        schema = "categories_management",
+        schema = "category_management",
         indexes = {
                 @Index(name = "idx_outbox_event_created", columnList = "status, createdAt"),
         }

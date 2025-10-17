@@ -14,6 +14,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.util.UriComponentsBuilder;
 import ru.mirea.nisanchik.categoryservice.model.dto.CategoryCreateRequest;
+import ru.mirea.nisanchik.categoryservice.model.dto.CategoryFilter;
 import ru.mirea.nisanchik.categoryservice.model.dto.CategoryResponse;
 import ru.mirea.nisanchik.categoryservice.model.dto.CategoryUpdateRequest;
 import ru.mirea.nisanchik.categoryservice.service.CategoryService;
@@ -29,14 +30,16 @@ public class CategoryController {
     private final CategoryService categoryService;
 
     @GetMapping()
-    public PagedModel<CategoryResponse> getAllCategories(@PageableDefault Pageable pageable) {
+    public PagedModel<CategoryResponse> getAllCategories(@PageableDefault Pageable pageable, @ModelAttribute CategoryFilter categoryFilter) {
+        log.info("getAllCategories");
         Page<CategoryResponse> categories =
-                this.categoryService.findAll(pageable);
+                this.categoryService.findAll(categoryFilter, pageable);
         return new PagedModel<>(categories);
     }
 
     @GetMapping("/{categoryId}")
     public ResponseEntity<CategoryResponse> getCategory(@PathVariable("categoryId") UUID categoryId) {
+        log.info("getCategory");
         CategoryResponse category = this.categoryService.findById(categoryId);
         return new ResponseEntity<>(category, HttpStatus.OK);
     }
@@ -44,6 +47,7 @@ public class CategoryController {
     @PostMapping
     public ResponseEntity<CategoryResponse> createCategory(@Valid @RequestBody CategoryCreateRequest request,
                                                            UriComponentsBuilder uriBuilder) {
+        log.info("createCategory");
         CategoryResponse category = this.categoryService.create(UUID.randomUUID(), request);
         return ResponseEntity.created(uriBuilder
                 .replacePath("/api/category/{categoryId}")
@@ -53,6 +57,7 @@ public class CategoryController {
     @PutMapping("/{categoryId}")
     public ResponseEntity<CategoryResponse> updateCategory(@PathVariable("categoryId") UUID transactionId,
                                                            @Valid @RequestBody CategoryUpdateRequest request){
+        log.info("updateCategory");
         CategoryResponse category = this.categoryService.updateById(UUID.randomUUID(), transactionId, request);
         return ResponseEntity.ok(category);
     }
@@ -60,13 +65,15 @@ public class CategoryController {
     @PatchMapping("/{categoryId}")
     public ResponseEntity<CategoryResponse> partialUpdateCategory(@PathVariable("categoryId") UUID transactionId,
                                                                   @RequestBody JsonNode jsonNode){
+        log.info("partialUpdateCategory");
         CategoryResponse category = this.categoryService.updateById(UUID.randomUUID(), transactionId, jsonNode);
         return ResponseEntity.ok(category);
     }
 
     @DeleteMapping("/{categoryId}")
     public ResponseEntity<CategoryResponse> deleteCategory(@PathVariable("categoryId") UUID categoryId) {
-        this.categoryService.deleteById(UUID.randomUUID(), categoryId);
+        log.info("Delete category with id {}", categoryId);
+        this.categoryService.hardDeleteById(categoryId);
         return ResponseEntity.noContent().build();
     }
 }

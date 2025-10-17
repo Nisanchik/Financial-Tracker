@@ -19,5 +19,6 @@ public class MessageCode {
     public static final String CATEGORY_ALREADY_COMPLETED = "error.category_already_completed";
 
     public static final String CATEGORY_ACCESS_DENIED = "error.category_access_denied";
+    public static final String CATEGORY_TYPE_CHANGE_FAILED = "error.category_type_change_failed";
 
 }

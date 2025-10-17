@@ -6,10 +6,8 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;
 import ru.mirea.nisanchik.categoryservice.configuration.properties.CategoryTopicsProperties;
 import ru.mirea.nisanchik.categoryservice.event.CategoryDeletedEvent;
-import ru.mirea.nisanchik.categoryservice.model.enums.CategoryType;
 import ru.mirea.nisanchik.categoryservice.service.OutboxService;
 
-import java.math.BigDecimal;
 import java.util.UUID;
 
 @Slf4j
@@ -30,11 +28,12 @@ public class CategoryEventPublisher {
                 UUID.randomUUID(),
                 categoryId
         );
+        log.info("Publishing category deleted event: {}", event);
         this.eventPublisher.publishEvent(event);
     }
 
     public void publishExternalCategoryDeletedEvent(UUID categoryId) {
-
+        log.info("Publishing category deleted event: {}", categoryId);
         CategoryDeletedEvent event = new CategoryDeletedEvent(
                 UUID.randomUUID(),
                 categoryId

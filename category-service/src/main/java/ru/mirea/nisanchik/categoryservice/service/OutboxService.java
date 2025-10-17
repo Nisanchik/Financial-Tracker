@@ -6,8 +6,10 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import ru.mirea.nisanchik.categoryservice.exception.CategoryException;
+import ru.mirea.nisanchik.categoryservice.model.entity.Category;
 import ru.mirea.nisanchik.categoryservice.model.entity.OutboxEvent;
 import ru.mirea.nisanchik.categoryservice.model.enums.OutboxStatus;
 import ru.mirea.nisanchik.categoryservice.repository.OutboxRepository;
@@ -31,6 +33,7 @@ public class OutboxService {
             String eventType,
             Object event
     ){
+        log.info("Saving event");
         try {
             if (this.outboxRepository.existsByAggregateIdAndEventType(aggregateId, eventType)) return;
             String payload = this.objectMapper.writeValueAsString(event);

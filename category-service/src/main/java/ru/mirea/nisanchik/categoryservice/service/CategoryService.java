@@ -3,24 +3,25 @@ package ru.mirea.nisanchik.categoryservice.service;
 import com.fasterxml.jackson.databind.JsonNode;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import ru.mirea.nisanchik.categoryservice.event.publisher.CategoryEventPublisher;
-import ru.mirea.nisanchik.categoryservice.exception.CategoryException;
-import ru.mirea.nisanchik.categoryservice.exception.CategoryProcessingException;
 import ru.mirea.nisanchik.categoryservice.exception.CategoryAccessDeniedException;
+import ru.mirea.nisanchik.categoryservice.exception.CategoryException;
 import ru.mirea.nisanchik.categoryservice.mapper.CategoryMapper;
 import ru.mirea.nisanchik.categoryservice.model.dto.CategoryCreateRequest;
+import ru.mirea.nisanchik.categoryservice.model.dto.CategoryFilter;
 import ru.mirea.nisanchik.categoryservice.model.dto.CategoryResponse;
 import ru.mirea.nisanchik.categoryservice.model.dto.CategoryUpdateRequest;
 import ru.mirea.nisanchik.categoryservice.model.entity.Category;
-import ru.mirea.nisanchik.categoryservice.model.enums.CategoryType;
+import ru.mirea.nisanchik.categoryservice.model.entity.OutboxEvent;
 import ru.mirea.nisanchik.categoryservice.repository.CategoryRepository;
 
-import java.util.Objects;
 import java.util.UUID;
 
 import static ru.mirea.nisanchik.categoryservice.utils.MessageCode.*;
@@ -36,49 +37,66 @@ public class CategoryService {
 
     private final CategoryEventPublisher categoryEventPublisher;
 
-    public Page<CategoryResponse> findAll(Pageable pageable) {
-        return categoryRepository.findAll(pageable).map(categoryMapper::toCategoryResponse);
+    public Page<CategoryResponse> findAll(CategoryFilter categoryFilter, Pageable pageable) {
+        log.info("Find all categories");
+        Specification<Category> specification = categoryRepository.buildSpecificationByFilter(categoryFilter);
+        return categoryRepository.findAll(specification, pageable).map(categoryMapper::toCategoryResponse);
     }
 
     public Page<CategoryResponse> findAllByTrackerID(UUID trackerId, Pageable pageable) {
+        log.info("Find all categories");
         return categoryRepository.findAllByTrackerId(trackerId, pageable).map(categoryMapper::toCategoryResponse);
     }
 
     public CategoryResponse findById(UUID categoryId) {
+        log.info("Find category by ID");
         return categoryRepository.findById(categoryId).map(categoryMapper::toCategoryResponse).orElseThrow(() -> new CategoryException(CATEGORY_NOT_FOUND, HttpStatus.NOT_FOUND));
     }
 
     public CategoryResponse findByTrackerIdAndId(UUID trackerId, UUID categoryId) {
+        log.info("Find category by ID and tracker ID");
         return categoryRepository.findAllByTrackerIdAndId(trackerId, categoryId).map(categoryMapper::toCategoryResponse).orElseThrow(CategoryAccessDeniedException::new);
     }
 
     @Transactional
     public CategoryResponse create(UUID trackerId, CategoryCreateRequest request) {
-        Category category = savePendingCategory(trackerId, request);
-
-        return this.categoryMapper.toCategoryResponse(category);
+        log.info("Create category");
+        try {
+            Category category = savePendingCategory(trackerId, request);
+            return this.categoryMapper.toCategoryResponse(category);
+        } catch (DataIntegrityViolationException exception) {
+            throw new CategoryException(CATEGORY_CREATE_FAILED, HttpStatus.CONFLICT);
+        } catch (Exception exception) {
+            throw new CategoryException(CATEGORY_CREATE_FAILED, HttpStatus.INTERNAL_SERVER_ERROR);
+        }
     }
 
     @Transactional
-    public void deleteById(UUID trackerId, UUID categoryId) {
-        Category category = categoryRepository.findById(categoryId).orElseThrow();
-        try {
-            this.categoryEventPublisher.publishInternalCategoryDeletedEvent(categoryId);
-        } catch (Exception e) {
-            throw new CategoryProcessingException();
-        }
+    public void hardDeleteById(UUID categoryId) {
+        log.info("Delete category with id {}", categoryId);
+        Category category = categoryRepository.findById(categoryId).orElseThrow(() -> new CategoryException(CATEGORY_NOT_FOUND, HttpStatus.NOT_FOUND));
+        this.categoryEventPublisher.publishInternalCategoryDeletedEvent(categoryId);
         this.categoryRepository.delete(category);
     }
 
     @Transactional
-    public CategoryResponse updateById(UUID trackerId, UUID categoryId, CategoryUpdateRequest request){
+    public void softDeleteById(UUID trackerId, UUID categoryId) {
+        log.info("Delete category with id {}", categoryId);
+        Category category = categoryRepository.findCategoryByTrackerIdAndId(trackerId, categoryId).orElseThrow(CategoryAccessDeniedException::new);
+        this.categoryEventPublisher.publishInternalCategoryDeletedEvent(categoryId);
+        category.setIsDeleted(true);
+    }
+
+    @Transactional
+    public CategoryResponse updateById(UUID trackerId, UUID categoryId, CategoryUpdateRequest request) {
+        log.info("Update category with id {}", categoryId);
         return this.categoryRepository.findCategoryByTrackerIdAndId(trackerId, categoryId)
                 .map(category -> {
                     if (request.name() != null) {
                         category.setName(request.name());
                     }
                     if (request.categoryType() != null) {
-                        category.setType(request.categoryType());
+                        throw new CategoryException(CATEGORY_TYPE_CHANGE_FAILED, HttpStatus.BAD_REQUEST);
                     }
                     return category;
                 }).map(this.categoryMapper::toCategoryResponse).orElseThrow(CategoryAccessDeniedException::new);
@@ -86,7 +104,7 @@ public class CategoryService {
 
     @Transactional
     public CategoryResponse updateById(UUID trackerId, UUID categoryId, JsonNode jsonNode) {
-
+        log.info("Update category with id {}", categoryId);
         Category category = findCategoryByTrackerIdAndId(categoryId, trackerId);
 
         try {
@@ -96,8 +114,7 @@ public class CategoryService {
             }
 
             if (jsonNode.has("type")) {
-                CategoryType type = CategoryType.valueOf(jsonNode.get("type").asText());
-                category.setType(type);
+                throw new CategoryException(CATEGORY_TYPE_CHANGE_FAILED, HttpStatus.BAD_REQUEST);
             }
 
             return categoryMapper.toCategoryResponse(category);
@@ -108,6 +125,7 @@ public class CategoryService {
     }
 
     private Category savePendingCategory(UUID trackerId, CategoryCreateRequest request) {
+        log.info("Save pending category");
         Category category = buildCategoryFromRequest(trackerId, request);
         return categoryRepository.save(category);
     }
@@ -125,6 +143,7 @@ public class CategoryService {
         category.setName(request.name());
         category.setType(request.type());
         category.setIsSystem(false);
+
         return category;
     }
 }

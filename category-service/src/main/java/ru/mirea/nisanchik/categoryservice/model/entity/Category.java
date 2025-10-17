@@ -1,15 +1,15 @@
 package ru.mirea.nisanchik.categoryservice.model.entity;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;
-import lombok.*;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 import ru.mirea.nisanchik.categoryservice.model.enums.CategoryType;
 
 import java.time.Instant;
-import java.util.List;
 import java.util.UUID;
 
 @Getter
@@ -19,7 +19,10 @@ import java.util.UUID;
 @AllArgsConstructor
 @Table(
         name = "t_categories",
-        schema = "categories_management",
+        schema = "category_management",
+        uniqueConstraints = {
+                @UniqueConstraint(name = "uk_category_name", columnNames = {"trackerId", "type", "name"})
+        },
         indexes = {
                 @Index(name = "idx_category_ids", columnList = "id"),
                 @Index(name = "idx_category_types", columnList = "type"),
@@ -44,6 +47,9 @@ public class Category {
 
     @Column(name = "is_system", nullable = false)
     private Boolean isSystem = false;
+
+    @Column(name = "is_deleted", nullable = false)
+    private Boolean isDeleted = false;
 
     @CreationTimestamp
     private Instant createdAt;

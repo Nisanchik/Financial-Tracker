@@ -9,16 +9,19 @@ spring:
   jpa:
     hibernate:
       ddl-auto: create
-
+  kafka:
+    bootstrap-servers: localhost:9092
 category-service:
   kafka:
     topics:
-      # Исходящие события
-      category-change: category.category.changed.v1
       category-delete: category.category.deleted.v1
 
 
     group-id: ${spring.application.name}
 
+
 server:
   port: 8084
+logging:
+  level:
+    ru.mirea.nisanchik.categoryservice: debug
