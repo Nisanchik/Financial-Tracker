@@ -36,6 +36,12 @@ spring:
                 - Path=/api/transactions/**
               filters:
                 - JwtAuthenticationFilter
+            - id: category-service
+              uri: http://localhost:8084
+              predicates:
+                - Path=/api/categories/**
+              filters:
+                - JwtAuthenticationFilter
   security:
     oauth2:
       resourceserver:
