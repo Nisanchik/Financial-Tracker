@@ -28,6 +28,10 @@ public interface CategoryRepository extends JpaRepository<Category, UUID>, JpaSp
             specification = specification.and((root, query, criteriaBuilder) ->
                     criteriaBuilder.equal(root.get("type"), filter.type()));
         }
+        if (Objects.nonNull(filter.name())) {
+            specification = specification.and((root, query, criteriaBuilder) ->
+                    criteriaBuilder.like(root.get("name"), "%" + filter.name() + "%"));
+        }
         if (Objects.nonNull(filter.isSystem())) {
             specification = specification.and((root, query, criteriaBuilder) ->
                     criteriaBuilder.equal(root.get("isSystem"), filter.isSystem()));

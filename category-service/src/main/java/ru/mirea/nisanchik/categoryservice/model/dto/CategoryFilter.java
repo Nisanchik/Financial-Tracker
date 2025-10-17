@@ -8,6 +8,7 @@ import java.util.UUID;
 public record CategoryFilter(
         UUID trackerId,
         @JsonProperty(value = "type") CategoryType type,
+        String name,
         Boolean isSystem
 ) {
 }

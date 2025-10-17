@@ -52,7 +52,7 @@ public class CategoryService {
     @PreAuthorize("isAuthenticated()")
     public Page<CategoryResponse> findAllByTrackerId(UUID trackerId, CategoryFilter filter, Pageable pageable) {
         log.info("Find all categories");
-        CategoryFilter updatedFilter = new CategoryFilter(trackerId, filter.type(), filter.isSystem());
+        CategoryFilter updatedFilter = new CategoryFilter(trackerId, filter.type(), filter.name(), filter.isSystem());
         Specification<Category> specification = this.categoryRepository.buildSpecificationByFilter(updatedFilter);
         return categoryRepository.findAll(specification, pageable)
                 .map(categoryMapper::toCategoryResponse);
