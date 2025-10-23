@@ -67,8 +67,7 @@ public class CategoryController {
                                                   @PathVariable("categoryId") UUID categoryId) {
         log.info("Request to check if category exists: categoryId={}", categoryId);
         Boolean isExists = this.categoryService.existsByTrackerIdAndId(authenticationDetails.getTrackerId(), categoryId);
-        HttpStatus status = isExists ? HttpStatus.OK : HttpStatus.NOT_FOUND;
-        return new ResponseEntity<>(isExists, status);
+        return new ResponseEntity<>(isExists, HttpStatus.OK);
     }
 
     @PreAuthorize("isAuthenticated()")
