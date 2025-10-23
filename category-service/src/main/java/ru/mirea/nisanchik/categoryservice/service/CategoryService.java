@@ -43,6 +43,8 @@ public class CategoryService {
 
     private final CategoryEventPublisher categoryEventPublisher;
 
+    // TODO: Добавить кэширование категорий
+
     @PreAuthorize("hasRole('ADMIN')")
     public Page<CategoryResponse> findAll(CategoryFilter categoryFilter, Pageable pageable) {
         log.info("Find all categories");
@@ -74,6 +76,12 @@ public class CategoryService {
         return this.categoryRepository.findAllByTrackerIdAndId(trackerId, categoryId)
                 .map(this.categoryMapper::toCategoryResponse)
                 .orElseThrow(CategoryAccessDeniedException::new);
+    }
+
+    @PreAuthorize("isAuthenticated()")
+    public Boolean existsByTrackerIdAndId(UUID trackerId, UUID categoryId) {
+        log.debug("Exists category: trackerId={}, categoryId={}", trackerId, categoryId);
+        return this.categoryRepository.existsCategoryByTrackerIdAndId(trackerId, categoryId);
     }
 
     @PreAuthorize("isAuthenticated()")
