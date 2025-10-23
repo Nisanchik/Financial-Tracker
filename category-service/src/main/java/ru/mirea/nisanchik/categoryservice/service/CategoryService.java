@@ -3,6 +3,9 @@ package ru.mirea.nisanchik.categoryservice.service;
 import com.fasterxml.jackson.databind.JsonNode;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -27,6 +30,7 @@ import ru.mirea.nisanchik.categoryservice.repository.CategoryRepository;
 import java.util.UUID;
 
 import static ru.mirea.nisanchik.categoryservice.utils.MessageCode.CATEGORY_CREATE_FAILED;
+import static ru.mirea.nisanchik.categoryservice.utils.MessageCode.CATEGORY_NOT_FOUND;
 import static ru.mirea.nisanchik.categoryservice.utils.MessageCode.CATEGORY_TYPE_CHANGE_FAILED;
 import static ru.mirea.nisanchik.categoryservice.utils.MessageCode.CATEGORY_UPDATE_FAILED;
 import static ru.mirea.nisanchik.categoryservice.utils.MessageCode.OPERATION_PROCESSING_FAILED;
@@ -43,8 +47,7 @@ public class CategoryService {
 
     private final CategoryEventPublisher categoryEventPublisher;
 
-    // TODO: Добавить кэширование категорий
-
+    //@Cacheable(value = "category-pages", key = "#pageable.pageNumber + '-' + #pageable.pageSize")
     @PreAuthorize("hasRole('ADMIN')")
     public Page<CategoryResponse> findAll(CategoryFilter categoryFilter, Pageable pageable) {
         log.info("Find all categories");
@@ -53,6 +56,7 @@ public class CategoryService {
                 .map(this.categoryMapper::toCategoryResponse);
     }
 
+   //@Cacheable(value = "category-pages", key = "#pageable.pageNumber + '-' + #pageable.pageSize + '-' + #trackerId")
     @PreAuthorize("isAuthenticated()")
     public Page<CategoryResponse> findAllByTrackerId(UUID trackerId, CategoryFilter filter, Pageable pageable) {
         log.info("Find all categories");
@@ -62,6 +66,7 @@ public class CategoryService {
                 .map(this.categoryMapper::toCategoryResponse);
     }
 
+    @Cacheable(value = "category-details", key = "#categoryId")
     @PreAuthorize("hasRole('ADMIN')")
     public CategoryResponse findById(UUID categoryId) {
         log.info("Find category by ID");
@@ -70,6 +75,7 @@ public class CategoryService {
                 .orElseThrow(CategoryNotFoundException::new);
     }
 
+    @Cacheable(value = "category-details", key = "#trackerId + '-' + #categoryId")
     @PreAuthorize("isAuthenticated()")
     public CategoryResponse findByTrackerIdAndId(UUID trackerId, UUID categoryId) {
         log.info("Find category by ID and tracker ID");
@@ -84,6 +90,10 @@ public class CategoryService {
         return this.categoryRepository.existsCategoryByTrackerIdAndId(trackerId, categoryId);
     }
 
+    @Caching(evict = {
+            @CacheEvict(value = "category-details", allEntries = true)
+            //@CacheEvict(value = "category-pages", allEntries = true)
+    })
     @PreAuthorize("isAuthenticated()")
     @Transactional
     public CategoryResponse create(UUID trackerId, CategoryCreateRequest request) {
@@ -99,6 +109,10 @@ public class CategoryService {
         }
     }
 
+    @Caching(evict = {
+            @CacheEvict(value = "category-details", allEntries = true)
+            //@CacheEvict(value = "category-pages", allEntries = true)
+    })
     @PreAuthorize("hasRole('ADMIN')")
     @Transactional
     public void hardDeleteById(UUID categoryId) {
@@ -108,6 +122,10 @@ public class CategoryService {
         this.categoryRepository.delete(category);
     }
 
+    @Caching(evict = {
+            @CacheEvict(value = "category-details", allEntries = true)
+            //@CacheEvict(value = "category-pages", allEntries = true)
+    })
     @PreAuthorize("isAuthenticated()")
     @Transactional
     public void softDeleteById(UUID trackerId, UUID categoryId) {
@@ -117,6 +135,10 @@ public class CategoryService {
         category.setIsDeleted(true);
     }
 
+    @Caching(evict = {
+            @CacheEvict(value = "category-details", allEntries = true)
+            //@CacheEvict(value = "category-pages", allEntries = true)
+    })
     @PreAuthorize("isAuthenticated()")
     @Transactional
     public CategoryResponse updateById(UUID trackerId, UUID categoryId, CategoryUpdateRequest request) {
@@ -134,7 +156,10 @@ public class CategoryService {
                 .map(this.categoryMapper::toCategoryResponse)
                 .orElseThrow(CategoryAccessDeniedException::new);
     }
-
+    @Caching(evict = {
+            @CacheEvict(value = "category-details", allEntries = true)
+            //@CacheEvict(value = "category-pages", allEntries = true)
+    })
     @PreAuthorize("isAuthenticated()")
     @Transactional
     public CategoryResponse updateById(UUID trackerId, UUID categoryId, JsonNode jsonNode) {
