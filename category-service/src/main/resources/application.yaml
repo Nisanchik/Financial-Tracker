@@ -8,9 +8,15 @@ spring:
     driver-class-name: org.postgresql.Driver
   jpa:
     hibernate:
-      ddl-auto: create
+      ddl-auto: update
   kafka:
     bootstrap-servers: localhost:9092
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      password: ${REDIS_PASSWORD:paZnybeyXR9Fx4ah}
+
 category-service:
   kafka:
     topics:
@@ -25,3 +31,4 @@ server:
 logging:
   level:
     ru.mirea.nisanchik.categoryservice: debug
+    org.springframework.security: trace
