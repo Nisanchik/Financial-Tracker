@@ -62,6 +62,16 @@ public class CategoryController {
     }
 
     @PreAuthorize("isAuthenticated()")
+    @GetMapping("/{categoryId}/exists")
+    public ResponseEntity<Boolean> categoryExists(@AuthenticationPrincipal HeaderAuthenticationDetails authenticationDetails,
+                                                  @PathVariable("categoryId") UUID categoryId) {
+        log.info("Request to check if category exists: categoryId={}", categoryId);
+        Boolean isExists = this.categoryService.existsByTrackerIdAndId(authenticationDetails.getTrackerId(), categoryId);
+        HttpStatus status = isExists ? HttpStatus.OK : HttpStatus.NOT_FOUND;
+        return new ResponseEntity<>(isExists, status);
+    }
+
+    @PreAuthorize("isAuthenticated()")
     @PostMapping
     public ResponseEntity<CategoryResponse> createCategory(@AuthenticationPrincipal HeaderAuthenticationDetails authenticationDetails,
                                                            @Valid @RequestBody CategoryCreateRequest request,

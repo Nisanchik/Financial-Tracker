@@ -16,7 +16,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import ru.mirea.nisanchik.categoryservice.event.publisher.CategoryEventPublisher;
 import ru.mirea.nisanchik.categoryservice.exception.CategoryAccessDeniedException;
-import ru.mirea.nisanchik.categoryservice.exception.CategoryException;
+import ru.mirea.nisanchik.categoryservice.exception.CategoryNotFoundException;
+import ru.mirea.nisanchik.categoryservice.exception.CategoryProcessingException;
+import ru.mirea.nisanchik.categoryservice.exception.CategoryServiceException;
 import ru.mirea.nisanchik.categoryservice.mapper.CategoryMapper;
 import ru.mirea.nisanchik.categoryservice.model.dto.CategoryCreateRequest;
 import ru.mirea.nisanchik.categoryservice.model.dto.CategoryFilter;
@@ -31,6 +33,7 @@ import static ru.mirea.nisanchik.categoryservice.utils.MessageCode.CATEGORY_CREA
 import static ru.mirea.nisanchik.categoryservice.utils.MessageCode.CATEGORY_NOT_FOUND;
 import static ru.mirea.nisanchik.categoryservice.utils.MessageCode.CATEGORY_TYPE_CHANGE_FAILED;
 import static ru.mirea.nisanchik.categoryservice.utils.MessageCode.CATEGORY_UPDATE_FAILED;
+import static ru.mirea.nisanchik.categoryservice.utils.MessageCode.OPERATION_PROCESSING_FAILED;
 
 @Service
 @Slf4j
@@ -48,9 +51,9 @@ public class CategoryService {
     @PreAuthorize("hasRole('ADMIN')")
     public Page<CategoryResponse> findAll(CategoryFilter categoryFilter, Pageable pageable) {
         log.info("Find all categories");
-        Specification<Category> specification = categoryRepository.buildSpecificationByFilter(categoryFilter);
-        return categoryRepository.findAll(specification, pageable)
-                .map(categoryMapper::toCategoryResponse);
+        Specification<Category> specification = this.categoryRepository.buildSpecificationByFilter(categoryFilter);
+        return this.categoryRepository.findAll(specification, pageable)
+                .map(this.categoryMapper::toCategoryResponse);
     }
 
    //@Cacheable(value = "category-pages", key = "#pageable.pageNumber + '-' + #pageable.pageSize + '-' + #trackerId")
@@ -59,24 +62,32 @@ public class CategoryService {
         log.info("Find all categories");
         CategoryFilter updatedFilter = new CategoryFilter(trackerId, filter.type(), filter.name(), filter.isSystem());
         Specification<Category> specification = this.categoryRepository.buildSpecificationByFilter(updatedFilter);
-        return categoryRepository.findAll(specification, pageable)
-                .map(categoryMapper::toCategoryResponse);
+        return this.categoryRepository.findAll(specification, pageable)
+                .map(this.categoryMapper::toCategoryResponse);
     }
 
     @Cacheable(value = "category-details", key = "#categoryId")
     @PreAuthorize("hasRole('ADMIN')")
     public CategoryResponse findById(UUID categoryId) {
         log.info("Find category by ID");
-        return categoryRepository.findById(categoryId)
-                .map(categoryMapper::toCategoryResponse)
-                .orElseThrow(() -> new CategoryException(CATEGORY_NOT_FOUND, HttpStatus.NOT_FOUND));
+        return this.categoryRepository.findById(categoryId)
+                .map(this.categoryMapper::toCategoryResponse)
+                .orElseThrow(CategoryNotFoundException::new);
     }
 
     @Cacheable(value = "category-details", key = "#trackerId + '-' + #categoryId")
     @PreAuthorize("isAuthenticated()")
     public CategoryResponse findByTrackerIdAndId(UUID trackerId, UUID categoryId) {
         log.info("Find category by ID and tracker ID");
-        return categoryRepository.findAllByTrackerIdAndId(trackerId, categoryId).map(categoryMapper::toCategoryResponse).orElseThrow(CategoryAccessDeniedException::new);
+        return this.categoryRepository.findAllByTrackerIdAndId(trackerId, categoryId)
+                .map(this.categoryMapper::toCategoryResponse)
+                .orElseThrow(CategoryAccessDeniedException::new);
+    }
+
+    @PreAuthorize("isAuthenticated()")
+    public Boolean existsByTrackerIdAndId(UUID trackerId, UUID categoryId) {
+        log.debug("Exists category: trackerId={}, categoryId={}", trackerId, categoryId);
+        return this.categoryRepository.existsCategoryByTrackerIdAndId(trackerId, categoryId);
     }
 
     @Caching(evict = {
@@ -89,11 +100,12 @@ public class CategoryService {
         log.info("Create category");
         try {
             Category category = savePendingCategory(trackerId, request);
+
             return this.categoryMapper.toCategoryResponse(category);
         } catch (DataIntegrityViolationException exception) {
-            throw new CategoryException(CATEGORY_CREATE_FAILED, HttpStatus.CONFLICT);
+            throw new CategoryProcessingException(CATEGORY_CREATE_FAILED);
         } catch (Exception exception) {
-            throw new CategoryException(CATEGORY_CREATE_FAILED, HttpStatus.INTERNAL_SERVER_ERROR);
+            throw new CategoryServiceException(OPERATION_PROCESSING_FAILED, HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
 
@@ -105,7 +117,7 @@ public class CategoryService {
     @Transactional
     public void hardDeleteById(UUID categoryId) {
         log.info("Delete category with id {}", categoryId);
-        Category category = categoryRepository.findById(categoryId).orElseThrow(() -> new CategoryException(CATEGORY_NOT_FOUND, HttpStatus.NOT_FOUND));
+        Category category = findCategoryById(categoryId);
         this.categoryEventPublisher.publishInternalCategoryDeletedEvent(categoryId);
         this.categoryRepository.delete(category);
     }
@@ -118,7 +130,7 @@ public class CategoryService {
     @Transactional
     public void softDeleteById(UUID trackerId, UUID categoryId) {
         log.info("Delete category with id {}", categoryId);
-        Category category = categoryRepository.findCategoryByTrackerIdAndId(trackerId, categoryId).orElseThrow(CategoryAccessDeniedException::new);
+        Category category = findCategoryByTrackerIdAndId(trackerId, categoryId);
         this.categoryEventPublisher.publishInternalCategoryDeletedEvent(categoryId);
         category.setIsDeleted(true);
     }
@@ -137,10 +149,12 @@ public class CategoryService {
                         category.setName(request.name());
                     }
                     if (request.categoryType() != null) {
-                        throw new CategoryException(CATEGORY_TYPE_CHANGE_FAILED, HttpStatus.BAD_REQUEST);
+                        throw new CategoryServiceException(CATEGORY_TYPE_CHANGE_FAILED, HttpStatus.BAD_REQUEST);
                     }
                     return category;
-                }).map(this.categoryMapper::toCategoryResponse).orElseThrow(CategoryAccessDeniedException::new);
+                })
+                .map(this.categoryMapper::toCategoryResponse)
+                .orElseThrow(CategoryAccessDeniedException::new);
     }
     @Caching(evict = {
             @CacheEvict(value = "category-details", allEntries = true)
@@ -153,26 +167,29 @@ public class CategoryService {
         Category category = findCategoryByTrackerIdAndId(categoryId, trackerId);
 
         try {
-
             if (jsonNode.has("name")) {
                 category.setName(jsonNode.get("name").asText());
             }
 
             if (jsonNode.has("type")) {
-                throw new CategoryException(CATEGORY_TYPE_CHANGE_FAILED, HttpStatus.BAD_REQUEST);
+                throw new CategoryServiceException(CATEGORY_TYPE_CHANGE_FAILED, HttpStatus.BAD_REQUEST);
             }
 
-            return categoryMapper.toCategoryResponse(category);
-
+            return this.categoryMapper.toCategoryResponse(category);
         } catch (Exception e) {
-            throw new CategoryException(CATEGORY_UPDATE_FAILED, HttpStatus.BAD_REQUEST);
+            throw new CategoryServiceException(CATEGORY_UPDATE_FAILED, HttpStatus.BAD_REQUEST);
         }
     }
 
     private Category savePendingCategory(UUID trackerId, CategoryCreateRequest request) {
         log.info("Save pending category");
         Category category = buildCategoryFromRequest(trackerId, request);
-        return categoryRepository.save(category);
+        return this.categoryRepository.save(category);
+    }
+
+    private Category findCategoryById(UUID categoryId) {
+        return this.categoryRepository.findById(categoryId)
+                .orElseThrow(CategoryNotFoundException::new);
     }
 
     private Category findCategoryByTrackerIdAndId(UUID trackerId, UUID categoryId) {

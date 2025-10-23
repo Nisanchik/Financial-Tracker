@@ -6,10 +6,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
-import ru.mirea.nisanchik.categoryservice.exception.CategoryException;
-import ru.mirea.nisanchik.categoryservice.model.entity.Category;
+import ru.mirea.nisanchik.categoryservice.exception.CategoryServiceException;
 import ru.mirea.nisanchik.categoryservice.model.entity.OutboxEvent;
 import ru.mirea.nisanchik.categoryservice.model.enums.OutboxStatus;
 import ru.mirea.nisanchik.categoryservice.repository.OutboxRepository;
@@ -50,7 +48,7 @@ public class OutboxService {
             this.outboxRepository.save(outboxEvent);
 
         } catch (JsonProcessingException e) {
-            throw new CategoryException("Failed to serialize event", e, HttpStatus.INTERNAL_SERVER_ERROR);
+            throw new CategoryServiceException("Failed to serialize event", e, HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
 }

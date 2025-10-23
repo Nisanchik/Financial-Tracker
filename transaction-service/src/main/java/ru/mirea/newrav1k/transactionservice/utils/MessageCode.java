@@ -20,4 +20,6 @@ public class MessageCode {
 
     public static final String TRANSACTION_ACCESS_DENIED = "error.transaction_access_denied";
 
+    public static final String CATEGORY_NOT_FOUND = "error.category_not_found";
+
 }

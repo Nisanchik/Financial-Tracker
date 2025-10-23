@@ -25,10 +25,12 @@ import ru.mirea.newrav1k.transactionservice.model.dto.TransactionUpdateRequest;
 import ru.mirea.newrav1k.transactionservice.model.entity.Transaction;
 import ru.mirea.newrav1k.transactionservice.model.enums.TransactionStatus;
 import ru.mirea.newrav1k.transactionservice.repository.TransactionRepository;
+import ru.mirea.newrav1k.transactionservice.service.client.CategoryClient;
 
 import java.math.BigDecimal;
 import java.util.UUID;
 
+import static ru.mirea.newrav1k.transactionservice.utils.MessageCode.CATEGORY_NOT_FOUND;
 import static ru.mirea.newrav1k.transactionservice.utils.MessageCode.TRANSACTION_UPDATE_FAILED;
 
 @Slf4j
@@ -42,6 +44,8 @@ public class TransactionService {
     private final TransactionMapper transactionMapper;
 
     private final TransactionEventPublisher transactionEventPublisher;
+
+    private final CategoryClient categoryClient;
 
     // TODO: добавить кэширование
 
@@ -83,6 +87,9 @@ public class TransactionService {
     @Transactional(noRollbackFor = {FeignException.class, TransactionServiceException.class})
     public TransactionResponse create(UUID trackerId, TransactionCreateRequest request) {
         log.debug("Creating transaction: trackerId={}, request={}", trackerId, request);
+        if (!this.categoryClient.existsCategoryById(request.categoryId())) {
+            throw new TransactionServiceException(CATEGORY_NOT_FOUND, HttpStatus.NOT_FOUND);
+        }
         Transaction transaction = savePendingTransaction(trackerId, request);
 
         this.transactionEventPublisher.publishInternalTransactionCreatedEvent(

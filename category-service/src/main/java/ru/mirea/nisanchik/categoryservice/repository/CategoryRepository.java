@@ -18,6 +18,8 @@ public interface CategoryRepository extends JpaRepository<Category, UUID>, JpaSp
 
     Optional<Category> findCategoryByTrackerIdAndId(UUID trackerId, UUID categoryId);
 
+    boolean existsCategoryByTrackerIdAndId(UUID trackerId, UUID id);
+
     default Specification<Category> buildSpecificationByFilter(CategoryFilter filter) {
         Specification<Category> specification = (root, query, criteriaBuilder) -> criteriaBuilder.conjunction();
         if (Objects.nonNull(filter.trackerId())) {
