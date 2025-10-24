@@ -71,4 +71,6 @@ public class Transaction extends BaseEntity {
     @Column(name = "status", nullable = false)
     private TransactionStatus status;
 
+    // TODO: добавить поле для soft-delete
+
 }

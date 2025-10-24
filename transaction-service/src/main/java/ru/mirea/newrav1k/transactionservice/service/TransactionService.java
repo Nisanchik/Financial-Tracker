@@ -4,6 +4,9 @@ import com.fasterxml.jackson.databind.JsonNode;
 import feign.FeignException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
@@ -47,8 +50,6 @@ public class TransactionService {
 
     private final CategoryClient categoryClient;
 
-    // TODO: добавить кэширование
-
     @PreAuthorize("hasRole('ADMIN')")
     public Page<TransactionResponse> findAll(TransactionFilter filter, Pageable pageable) {
         log.debug("Finding all transactions: filter={}", filter);
@@ -66,6 +67,7 @@ public class TransactionService {
                 .map(this.transactionMapper::toTransactionResponse);
     }
 
+    @Cacheable(value = "transaction-details", key = "#transactionId")
     @PreAuthorize("hasRole('ADMIN')")
     public TransactionResponse findById(UUID transactionId) {
         log.debug("Finding transaction: transactionId={}", transactionId);
@@ -74,6 +76,7 @@ public class TransactionService {
                 .orElseThrow(TransactionNotFoundException::new);
     }
 
+    @Cacheable(value = "transaction-details", key = "#transactionId + '-' + #trackerId")
     @PreAuthorize("isAuthenticated()")
     public TransactionResponse findByTrackerIdAndId(UUID trackerId, UUID transactionId) {
         log.debug("Finding transaction: trackerId={}, transactionId={}", trackerId, transactionId);
@@ -82,6 +85,7 @@ public class TransactionService {
                 .orElseThrow(TransactionAccessDeniedException::new);
     }
 
+    @CacheEvict(value = "transaction-details", allEntries = true)
     // TODO: сделать retry при возникновении ошибок (опционально)
     @PreAuthorize("isAuthenticated()")
     @Transactional(noRollbackFor = {FeignException.class, TransactionServiceException.class})
@@ -102,6 +106,10 @@ public class TransactionService {
         return this.transactionMapper.toTransactionResponse(transaction);
     }
 
+    @Caching(evict = {
+            @CacheEvict(value = "transaction-details", key = "#transactionId"),
+            @CacheEvict(value = "transaction-details", key = "#transactionId + '-' + #trackerId")
+    })
     @PreAuthorize("isAuthenticated()")
     @Transactional
     public TransactionResponse updateById(UUID trackerId, UUID transactionId, TransactionUpdateRequest request) {
@@ -112,18 +120,14 @@ public class TransactionService {
                         transaction.setDescription(request.description());
                     }
                     if (request.amount() != null) {
-                        if (!transaction.getAmount().equals(request.amount())) {
-                            this.transactionEventPublisher.publishInternalCompensateDifferenceAmountEvent(
-                                    transaction.getId(),
-                                    transaction.getAccountId(),
-                                    transaction.getType(),
-                                    transaction.getAmount(),
-                                    request.amount()
-                            );
-                            transaction.setAmount(request.amount());
-                        } else {
-                            log.warn("Transaction amount equals request amount {}", request.amount());
-                        }
+                        this.transactionEventPublisher.publishInternalCompensateDifferenceAmountEvent(
+                                transaction.getId(),
+                                transaction.getAccountId(),
+                                transaction.getType(),
+                                transaction.getAmount(),
+                                request.amount()
+                        );
+                        transaction.setAmount(request.amount());
                     }
                     return transaction;
                 })
@@ -131,6 +135,10 @@ public class TransactionService {
                 .orElseThrow(TransactionAccessDeniedException::new);
     }
 
+    @Caching(evict = {
+            @CacheEvict(value = "transaction-details", key = "#transactionId"),
+            @CacheEvict(value = "transaction-details", key = "#transactionId + '-' + #trackerId")
+    })
     @PreAuthorize("isAuthenticated()")
     @Transactional
     public TransactionResponse updateById(UUID trackerId, UUID transactionId, JsonNode jsonNode) {
@@ -142,18 +150,14 @@ public class TransactionService {
             }
             if (jsonNode.has("amount")) {
                 BigDecimal requestAmount = jsonNode.get("amount").decimalValue();
-                if (!transaction.getAmount().equals(requestAmount)) {
-                    this.transactionEventPublisher.publishInternalCompensateDifferenceAmountEvent(
-                            transaction.getId(),
-                            transaction.getAccountId(),
-                            transaction.getType(),
-                            transaction.getAmount(),
-                            requestAmount
-                    );
-                    transaction.setAmount(requestAmount);
-                } else {
-                    log.warn("Transaction amount equals request amount {}", requestAmount);
-                }
+                this.transactionEventPublisher.publishInternalCompensateDifferenceAmountEvent(
+                        transaction.getId(),
+                        transaction.getAccountId(),
+                        transaction.getType(),
+                        transaction.getAmount(),
+                        requestAmount
+                );
+                transaction.setAmount(requestAmount);
             }
             return this.transactionMapper.toTransactionResponse(transaction);
         } catch (Exception exception) {
@@ -162,6 +166,10 @@ public class TransactionService {
         }
     }
 
+    @Caching(evict = {
+            @CacheEvict(value = "transaction-details", key = "#transactionId"),
+            @CacheEvict(value = "transaction-details", key = "#transactionId + '-' + #trackerId")
+    })
     @PreAuthorize("isAuthenticated() or hasRole('ADMIN')")
     @Transactional
     public void deleteById(UUID trackerId, UUID transactionId) {
@@ -183,6 +191,10 @@ public class TransactionService {
         this.transactionRepository.delete(transaction);
     }
 
+    @Caching(evict = {
+            @CacheEvict(value = "transaction-details", key = "#transactionId"),
+            @CacheEvict(value = "transaction-details", key = "#transactionId + '-*'")
+    })
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void updateTransactionStatus(UUID transactionId, TransactionStatus status) {
         log.debug("Updating transaction status: transactionId={}, status={}", transactionId, status);
